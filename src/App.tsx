@@ -14,12 +14,10 @@ import {
   Plus,
   ClipboardCopy,
   Printer,
-  CalendarCheck,
   History,
   Layers,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
   BookOpen
 } from 'lucide-react';
 
@@ -108,7 +106,7 @@ export default function App() {
     }));
   };
 
-  const updateHistory = <K extends keyof PriorDoseState>(key: K, value: PriorDoseState[K]) => {
+  const updateHistory = (key: keyof PriorDoseState, value: any) => {
     setPatient(prev => ({
       ...prev,
       history: {
@@ -148,9 +146,7 @@ export default function App() {
     const isImmuno = hasCondition('immunocompromised') || hasCondition('asplenia');
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
-    // ==========================================
     // 1. INFLUENZA
-    // ==========================================
     if (patient.history.fluThisSeason) {
       list.push({
         id: 'flu_done',
@@ -161,7 +157,7 @@ export default function App() {
         priority: 'informational',
         schedule: 'Documented for current season',
         rationale: 'Patient has already received seasonal influenza vaccination for the current cycle.',
-        sourceCitation: 'CDC MMWR / Prevention and Control of Seasonal Influenza with Vaccines: ACIP Recommendations (2025-2026)',
+        sourceCitation: 'CDC MMWR / Prevention and Control of Seasonal Influenza with Vaccines: ACIP Recommendations',
       });
     } else {
       list.push({
@@ -179,15 +175,13 @@ export default function App() {
       });
     }
 
-    // ==========================================
-    // 2. COVID-19 (Updated ACIP Shared Clinical Decision-Making Guidance)
-    // ==========================================
+    // 2. COVID-19 (Shared Decision Making Guidance)
     if (patient.history.covidRecent) {
       list.push({
         id: 'covid_done',
         name: 'COVID-19 (Updated Formulation)',
         brandExamples: 'Spikevax (Moderna), Comirnaty (Pfizer), Novavax',
-        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs (2025-26 schedule); Novavax: ≥12 yrs',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; Novavax: ≥12 yrs',
         category: 'completed',
         priority: 'informational',
         schedule: 'Up to date for current seasonal cycle',
@@ -204,7 +198,7 @@ export default function App() {
         priority: 'high',
         schedule: '1 dose updated seasonal formulation; optional additional dose 6 months later based on SCDM',
         rationale: 'ACIP Guideline: Recommended based on individual-based / shared clinical decision-making (SCDM). Risk-benefit is highly favorable in older adults due to elevated hospitalization risk.',
-        sourceCitation: 'CDC ACIP Recommendations for Individual Decision-Making for COVID-19 Vaccination (HHS/CDC 2025-2026)',
+        sourceCitation: 'CDC ACIP Recommendations for Individual Decision-Making for COVID-19 Vaccination',
       });
     } else if (isImmuno || hasChronic || patient.isPregnant) {
       list.push({
@@ -227,14 +221,12 @@ export default function App() {
         category: 'shared-decision',
         priority: 'medium',
         schedule: '1 dose updated seasonal formulation via clinical consultation',
-        rationale: 'ACIP Guideline: Administered under shared clinical decision-making (SCDM). While favorable risk-benefit persists across all ages ≥6 months, clinical discussion considers baseline personal risk and community transmission.',
+        rationale: 'ACIP Guideline: Administered under shared clinical decision-making (SCDM). Clinical discussion considers baseline personal risk and community transmission.',
         sourceCitation: 'HHS / ACIP Adult & Child Immunization Schedules / Shared Clinical Decision-Making Guidance',
       });
     }
 
-    // ==========================================
     // 3. PEDIATRIC SPECIFIC (Age < 19)
-    // ==========================================
     if (patient.age < 19) {
       if (patient.age < 1) {
         list.push({
@@ -279,9 +271,7 @@ export default function App() {
       }
     }
 
-    // ==========================================
-    // 4. TDAP / TD (Adults ≥ 19 or Pregnant)
-    // ==========================================
+    // 4. TDAP / TD
     if (patient.age >= 19 || patient.isPregnant) {
       if (patient.isPregnant) {
         list.push({
@@ -322,9 +312,7 @@ export default function App() {
       }
     }
 
-    // ==========================================
-    // 5. SHINGLES (RZV - Shingrix)
-    // ==========================================
+    // 5. SHINGLES (Shingrix)
     if (patient.history.shingrixCompleted) {
       list.push({
         id: 'shingrix_done',
@@ -334,7 +322,7 @@ export default function App() {
         category: 'completed',
         priority: 'informational',
         schedule: 'Series Completed (2 doses documented)',
-        rationale: 'Full 2-dose series confers >90% long-term protection against Herpes Zoster and PHN. Routine booster doses not currently recommended.',
+        rationale: 'Full 2-dose series confers >90% long-term protection against Herpes Zoster and PHN.',
         sourceCitation: 'CDC MMWR Recommendations of ACIP / Shingrix Package Insert (GSK)',
       });
     } else if (patient.age >= 50 || (patient.age >= 19 && isImmuno)) {
@@ -353,9 +341,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
-    // 6. PNEUMOCOCCAL (PCV20 / PCV21 / PCV15)
-    // ==========================================
+    // 6. PNEUMOCOCCAL
     if (patient.history.priorPneumococcal === 'pcv20') {
       list.push({
         id: 'pneumo_completed',
@@ -377,7 +363,7 @@ export default function App() {
         category: 'routine',
         priority: 'high',
         schedule: '1 dose PCV20 or PCV21 alone (or PCV15 followed by PPSV23 ≥1 year later)',
-        rationale: 'CDC routinely recommends pneumococcal immunization starting at age 50 to protect against invasive pneumococcal disease (bacteremia, meningitis) and pneumonia.',
+        rationale: 'CDC routinely recommends pneumococcal immunization starting at age 50 to protect against invasive pneumococcal disease and pneumonia.',
         sourceCitation: 'CDC ACIP Updated Pneumococcal Recommendations / Capvaxive FDA Approval',
       });
     } else if (hasChronic || isImmuno) {
@@ -391,14 +377,12 @@ export default function App() {
         schedule: isImmuno 
           ? '1 dose PCV20/21 (or PCV15 followed by PPSV23 ≥8 weeks later)' 
           : '1 dose PCV20 or PCV21 (or PCV15 followed by PPSV23 ≥1 year later)',
-        rationale: 'Indicated for adults 19-49 with chronic medical conditions (diabetes, lung, heart, liver) or immunocompromising states.',
+        rationale: 'Indicated for adults 19-49 with chronic medical conditions or immunocompromising states.',
         sourceCitation: 'CDC MMWR / ACIP Pneumococcal Conjugate Vaccines in Adults with Underlying Conditions',
       });
     }
 
-    // ==========================================
-    // 7. RSV (Adult & Maternal)
-    // ==========================================
+    // 7. RSV
     if (patient.age >= 75) {
       list.push({
         id: 'rsv_75',
@@ -420,7 +404,7 @@ export default function App() {
         category: 'risk-based',
         priority: 'high',
         schedule: 'Single one-time dose prior to peak seasonal transmission',
-        rationale: 'Indicated for adults 50-74 at increased risk due to chronic cardiovascular, pulmonary, renal, endocrine illness, or immunocompromise.',
+        rationale: 'Indicated for adults 50-74 at increased risk due to chronic illness or immunocompromise.',
         sourceCitation: 'CDC ACIP RSV Recommendations for High-Risk Adults Aged 50-74',
       });
     } else if (patient.isPregnant) {
@@ -432,14 +416,12 @@ export default function App() {
         category: 'routine',
         priority: 'high',
         schedule: '1 dose administered at 32 through 36 weeks gestation during September–January',
-        rationale: 'Provides passive transplacental transfer of neutralizing antibodies to prevent severe RSV disease and hospitalization in infants from birth through 6 months.',
+        rationale: 'Provides passive transplacental transfer of neutralizing antibodies to prevent severe RSV disease and hospitalization in infants.',
         sourceCitation: 'CDC MMWR / Maternal RSV Vaccine ACIP Recommendations / FDA Abrysvo Insert',
       });
     }
 
-    // ==========================================
     // 8. HEPATITIS B
-    // ==========================================
     if (patient.history.hepbCompleted) {
       list.push({
         id: 'hepb_done',
@@ -449,7 +431,7 @@ export default function App() {
         category: 'completed',
         priority: 'informational',
         schedule: 'Full documented series completed',
-        rationale: 'Documented completion confers durable protection without routine booster requirements for immunocompetent hosts.',
+        rationale: 'Documented completion confers durable protection without routine booster requirements.',
         sourceCitation: 'CDC ACIP Hepatitis B Immunization Guidelines',
       });
     } else if (patient.age >= 19 && patient.age <= 59) {
@@ -473,14 +455,12 @@ export default function App() {
         category: 'risk-based',
         priority: 'high',
         schedule: '2 doses (Heplisav-B at 0, 1 mo) or 3 doses standard antigen',
-        rationale: 'Recommended for adults ≥60 with diabetes mellitus, occupational bloodborne exposure, end-stage renal disease, or chronic hepatitis risk.',
+        rationale: 'Recommended for adults ≥60 with diabetes mellitus, occupational bloodborne exposure, or chronic hepatitis risk.',
         sourceCitation: 'CDC ACIP Risk-Based HepB Immunization in Older Adults',
       });
     }
 
-    // ==========================================
-    // 9. LIVE VACCINES & CONTRAINDICATIONS (MMR & VARICELLA)
-    // ==========================================
+    // 9. LIVE VACCINES & CONTRAINDICATIONS
     if (patient.isPregnant || isImmuno) {
       list.push({
         id: 'contra_live',
@@ -490,7 +470,7 @@ export default function App() {
         category: 'contraindicated',
         priority: 'critical',
         schedule: 'ABSOLUTELY CONTRAINDICATED (DO NOT ADMINISTER)',
-        rationale: 'Live attenuated viral replication carries severe risk of congenital rubella syndrome, fetal viremia, or disseminated fatal viral infection in immunocompromised hosts.',
+        rationale: 'Live attenuated viral replication carries severe risk of congenital rubella syndrome, fetal viremia, or disseminated fatal infection in immunocompromised hosts.',
         contraindications: patient.isPregnant ? 'Active Pregnancy' : 'Severe Immunocompromise / T-cell deficiency',
         sourceCitation: 'CDC General Best Practice Guidelines for Immunization: Contraindications and Precautions',
       });
@@ -511,7 +491,6 @@ export default function App() {
     return list;
   }, [patient]);
 
-  // Tab & Search Filtering
   const filteredRecs = useMemo(() => {
     return recommendations.filter(rec => {
       const q = searchQuery.toLowerCase();
@@ -529,7 +508,6 @@ export default function App() {
     });
   }, [recommendations, searchQuery, activeTab]);
 
-  // Clinical Note Generator (SOAP / SBAR format)
   const clinicalNoteText = useMemo(() => {
     const indicated = recommendations.filter(r => r.category === 'routine' || r.category === 'risk-based');
     const scdm = recommendations.filter(r => r.category === 'shared-decision');
@@ -559,8 +537,7 @@ ${scdm.length > 0 ? scdm.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA I
 CONTRAINDICATIONS / SAFETY FLAGS:
 ${contra.length > 0 ? contra.map(r => `• CRITICAL: ${r.name}\n  - Reason: ${r.contraindications}\n  - Clinical Rationale:${r.rationale}`).join('\n') : '• No active contraindications flagged'}
 
-Assessed per CDC / ACIP Clinical Guidelines.
-Generated: ${new Date().toLocaleDateString()}`;
+Assessed per CDC / ACIP Clinical Guidelines.`;
   }, [patient, recommendations]);
 
   const copyToClipboard = () => {
@@ -816,7 +793,7 @@ Generated: ${new Date().toLocaleDateString()}`;
                     onChange={(e) => updateHistory('hepbCompleted', e.target.checked)}
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                   />
-                  <span>Completed Hepatitis B series (documented 3-dose or 2-dose Heplisav)</span>
+                  <span>Completed Hepatitis B series</span>
                 </label>
 
                 <div className="pt-2 border-t border-slate-100">
@@ -825,7 +802,7 @@ Generated: ${new Date().toLocaleDateString()}`;
                   </label>
                   <select
                     value={patient.history.priorPneumococcal}
-                    onChange={(e) => updateHistory('priorPneumococcal', e.target.value as any)}
+                    onChange={(e) => updateHistory('priorPneumococcal', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="none">None / Unknown</option>
@@ -1019,16 +996,13 @@ Generated: ${new Date().toLocaleDateString()}`;
             
             <div className="text-xs space-y-3 text-slate-700 leading-relaxed">
               <p>
-                <strong>General Rule for Inactivated Vaccines:</strong> Most inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap) can be co-administered at separate anatomical injection sites (≥1 inch apart) during the same clinical visit.
+                <strong>General Rule for Inactivated Vaccines:</strong> Most inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap) can be co-administered at separate anatomical injection sites during the same clinical visit.
               </p>
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
-                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Live parenteral vaccines must either be administered on the <em>same calendar day</em> OR spaced apart by a <em>minimum of 28 days (4 weeks)</em> to avoid immune interference.
+                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Live parenteral vaccines must either be administered on the <em>same calendar day</em> OR spaced apart by a <em>minimum of 28 days</em> to avoid immune interference.
               </div>
               <p>
                 <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent adults) or ≥8 weeks later (immunocompromised adults). Do not administer simultaneously.
-              </p>
-              <p>
-                <strong>Orthostatic Syncope Precaution:</strong> Observe adolescents and young adults seated or recumbent for 15 minutes post-vaccination.
               </p>
             </div>
 
@@ -1037,14 +1011,14 @@ Generated: ${new Date().toLocaleDateString()}`;
                 onClick={() => setShowCoAdminModal(false)}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold"
               >
-                Done
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Medical & Regulatory Liability Disclaimer */}
+      {/* Medical Disclaimer */}
       <footer className="mt-12 pt-6 border-t border-slate-200 print:hidden">
         <div className="bg-slate-100 rounded-2xl p-5 border border-slate-200">
           <div className="flex items-center gap-2 text-slate-800 font-bold text-sm mb-2">
@@ -1052,10 +1026,7 @@ Generated: ${new Date().toLocaleDateString()}`;
             <h3>Medical & Regulatory Disclaimer</h3>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
-            <strong>For Educational and Informational Purposes Only:</strong> This application is intended solely as an interactive reference tool based on published CDC and ACIP immunization schedules and manufacturer prescribing guidelines. It does not provide automated medical prescription, diagnosis, or personalized medical orders, and does not establish a physician-patient relationship.
-          </p>
-          <p className="text-xs text-slate-600 leading-relaxed mt-2">
-            Clinicians must independently evaluate patient allergy records, history of severe adverse reactions (e.g., anaphylaxis, Guillain-Barré syndrome), and current health status before administering any biologic or vaccine. CDC and product trade names are referenced strictly under nominative fair use for identification purposes.
+            <strong>For Educational and Informational Purposes Only:</strong> This application is intended solely as an interactive reference tool based on published CDC and ACIP immunization schedules and manufacturer prescribing guidelines. It does not provide medical advice or personalized medical orders.
           </p>
         </div>
       </footer>
