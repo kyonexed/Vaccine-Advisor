@@ -173,13 +173,15 @@ export default function App() {
       list.push({
         id: 'flu',
         name: 'Influenza (Seasonal Flu)',
-        brandExamples: patient.age >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV4/RIV4 or ccIIV4',
+        brandExamples: patient.age >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV4/RIV4 or ccIIV4 (Inactivated only in pregnancy)',
         fdaAgeRange: patient.age >= 65 ? 'High-dose/Adjuvanted: ≥65 years' : 'Standard IIV4: ≥6 months',
         category: 'routine',
         priority: 'high',
         schedule: '1 dose annually every autumn/winter season',
         rationale: patient.age >= 65 
           ? 'Age ≥65: Higher-dose or adjuvanted influenza vaccine is preferentially recommended for enhanced immunogenicity.'
+          : patient.isPregnant
+          ? 'Recommended in any trimester of pregnancy (inactivated IIV4 or recombinant RIV4 only) to prevent maternal-fetal morbidity.'
           : 'Universal annual recommendation for all individuals aged ≥6 months without contraindications.',
         sourceCitation: 'CDC MMWR Recommendations and Reports / ACIP Seasonal Influenza Schedule',
       });
@@ -322,7 +324,7 @@ export default function App() {
       }
     }
 
-    // 5. SHINGLES (RZV - Immunocompromise Indication)
+    // 5. SHINGLES (RZV - Immunocompromise Indication + Pregnancy Caution)
     if (patient.history.shingrixCompleted) {
       list.push({
         id: 'shingrix_done',
@@ -334,6 +336,18 @@ export default function App() {
         schedule: 'Series Completed (2 doses documented)',
         rationale: 'Full 2-dose series confers >90% long-term protection against Herpes Zoster and PHN.',
         sourceCitation: 'CDC MMWR Recommendations of ACIP / Shingrix Package Insert (GSK)',
+      });
+    } else if (patient.isPregnant && isImmuno) {
+      list.push({
+        id: 'shingrix_preg_caution',
+        name: 'Zoster Vaccine Recombinant (Shingrix - Defer in Pregnancy)',
+        brandExamples: 'Shingrix (RZV)',
+        fdaAgeRange: 'FDA Approved: Adults ≥18 years who are immunocompromised',
+        category: 'risk-based',
+        priority: 'medium',
+        schedule: 'Defer 2-dose series until postpartum (unless acute clinical risk overrides lack of pregnancy safety data)',
+        rationale: 'Although RZV is a non-live recombinant subunit vaccine, ACIP recommends deferring administration until postpartum due to limited clinical trial data during pregnancy, unless imminent immunosuppressive risks outweigh potential concerns.',
+        sourceCitation: 'CDC ACIP Guidelines for Vaccination of Immunocompromised Adults & Pregnant Women',
       });
     } else if (patient.age >= 50 || (patient.age >= 19 && isImmuno)) {
       list.push({
@@ -549,18 +563,30 @@ export default function App() {
       });
     }
 
-    // 9. HEPATITIS B
+    // 9. HEPATITIS B (Tailored for Pregnancy Safety vs Non-pregnant)
     if (patient.history.hepbCompleted) {
       list.push({
         id: 'hepb_done',
         name: 'Hepatitis B',
-        brandExamples: 'Heplisav-B, Engerix-B, Recombivax HB',
-        fdaAgeRange: 'Heplisav-B: ≥18 yrs; Engerix-B: all ages',
+        brandExamples: 'Engerix-B, Recombivax HB, Heplisav-B',
+        fdaAgeRange: 'Engerix-B: all ages; Heplisav-B: ≥18 yrs',
         category: 'completed',
         priority: 'informational',
         schedule: 'Full documented series completed',
         rationale: 'Documented completion confers durable protection without routine booster requirements.',
         sourceCitation: 'CDC ACIP Hepatitis B Immunization Guidelines',
+      });
+    } else if (patient.isPregnant) {
+      list.push({
+        id: 'hepb_preg',
+        name: 'Hepatitis B (Pregnancy Formulation)',
+        brandExamples: 'Engerix-B or Recombivax HB (Standard Alum Adjuvanted ONLY)',
+        fdaAgeRange: 'Engerix-B / Recombivax HB: Approved across all ages including pregnancy',
+        category: 'risk-based',
+        priority: 'high',
+        schedule: '3-dose series (0, 1, 6 months) using standard single-antigen vaccine. DO NOT USE Heplisav-B or PreHevbrio.',
+        rationale: 'Indicated during pregnancy for patients with occupational exposure, diabetes, ESRD, or chronic liver risk. ACIP explicitly advises using standard alum-adjuvanted vaccines (Engerix-B/Recombivax HB); CpG-adjuvanted (Heplisav-B) and 3-antigen (PreHevbrio) vaccines lack safety data during pregnancy.',
+        sourceCitation: 'CDC ACIP Recommendations for Hepatitis B Vaccination During Pregnancy / MMWR Guidelines',
       });
     } else if (patient.age >= 19 && patient.age <= 59) {
       list.push({
@@ -589,8 +615,14 @@ export default function App() {
     }
 
     // 10. LIVE VACCINES (MMR & VARICELLA)
-    // Only contraindicated for PREGNANCY and SEVERE IMMUNOCOMPROMISE (NOT isolated asplenia)
+    // Document both pregnancy AND severe immunocompromise when both are present
     if (patient.isPregnant || isImmuno) {
+      const contraReason = patient.isPregnant && isImmuno
+        ? 'Active Pregnancy AND Severe Immunocompromise / T-cell deficiency'
+        : patient.isPregnant
+        ? 'Active Pregnancy'
+        : 'Severe Immunocompromise / T-cell deficiency';
+
       list.push({
         id: 'contra_live',
         name: 'Live Viral Vaccines (MMR, Varicella, LAIV Flu)',
@@ -600,7 +632,7 @@ export default function App() {
         priority: 'critical',
         schedule: 'ABSOLUTELY CONTRAINDICATED (DO NOT ADMINISTER)',
         rationale: 'Live attenuated viral replication carries severe risk of congenital rubella syndrome, fetal viremia, or unchecked disseminated infection in severely immunocompromised hosts.',
-        contraindications: patient.isPregnant ? 'Active Pregnancy' : 'Severe Immunocompromise / T-cell deficiency',
+        contraindications: contraReason,
         sourceCitation: 'CDC General Best Practice Guidelines for Immunization: Contraindications and Precautions',
       });
     } else if (patient.age >= 12 && patient.age < 50) {
@@ -692,7 +724,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            Automated clinical decision engine with manufacturer FDA age criteria, asplenia protocols, & ACIP shared decision-making.
+            Automated clinical decision engine with manufacturer FDA age criteria, maternal/asplenia protocols, & ACIP shared decision-making.
           </p>
         </div>
         
@@ -1162,9 +1194,6 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
                 <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
               </div>
-              <p>
-                <strong>Asplenia MenACWY / PCV Spacing:</strong> If Menactra (an older MenACWY-D conjugate) is used, administer PCV first and separate from Menactra by $\ge 4$ weeks to prevent interference. (Not applicable to Menveo or MenQuadfi).
-              </p>
               <p>
                 <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent) or $\ge 8$ weeks later (immunocompromised or asplenia). Never administer PCV15 and PPSV23 together at the same visit.
               </p>
