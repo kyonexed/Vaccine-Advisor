@@ -18,7 +18,8 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
-  BookOpen
+  BookOpen,
+  Clock
 } from 'lucide-react';
 
 interface PriorDoseState {
@@ -31,6 +32,7 @@ interface PriorDoseState {
   hibReceived: boolean;
   menAcwyCompleted: boolean;
   menBCompleted: boolean;
+  ipvCompleted: boolean;
 }
 
 interface PatientProfile {
@@ -47,7 +49,7 @@ interface VaccineRecommendation {
   name: string;
   brandExamples: string;
   fdaAgeRange: string;
-  category: 'routine' | 'shared-decision' | 'risk-based' | 'contraindicated' | 'completed';
+  category: 'routine' | 'shared-decision' | 'risk-based' | 'contraindicated' | 'completed' | 'deferred';
   schedule: string;
   rationale: string;
   sourceCitation: string;
@@ -98,7 +100,7 @@ const PRESET_MONTHS = [
 
 export default function App() {
   const [patient, setPatient] = useState<PatientProfile>({
-    ageValue: 0,
+    ageValue: 6,
     ageUnit: 'months',
     isPregnant: false,
     conditions: [],
@@ -113,6 +115,7 @@ export default function App() {
       hibReceived: false,
       menAcwyCompleted: false,
       menBCompleted: false,
+      ipvCompleted: false,
     }
   });
 
@@ -122,7 +125,6 @@ export default function App() {
   const [showCoAdminModal, setShowCoAdminModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Convert months to fractional years for clinical decision engine
   const ageInYears = useMemo(() => {
     return patient.ageUnit === 'months' 
       ? patient.ageValue / 12 
@@ -180,12 +182,13 @@ export default function App() {
         hibReceived: false,
         menAcwyCompleted: false,
         menBCompleted: false,
+        ipvCompleted: false,
       }
     });
   };
 
   const handleAgeChange = (value: number) => {
-    const max = patient.ageUnit === 'months' ? 120 : 120;
+    const max = 120;
     const valid = isNaN(value) ? 0 : Math.max(0, Math.min(max, value));
     setPatient(prev => ({ ...prev, ageValue: valid }));
   };
@@ -201,7 +204,7 @@ export default function App() {
     }
   };
 
-  // Comprehensive ACIP Evaluation Engine
+  // ACIP Evaluation Engine
   const recommendations: VaccineRecommendation[] = useMemo(() => {
     const list: VaccineRecommendation[] = [];
     const hasCondition = (id: string) => patient.conditions.includes(id);
@@ -229,9 +232,9 @@ export default function App() {
         name: 'Influenza (Seasonal Flu)',
         brandExamples: 'Standard IIV4 / ccIIV4',
         fdaAgeRange: 'Approved for age ≥6 months only',
-        category: 'contraindicated',
+        category: 'deferred',
         priority: 'informational',
-        schedule: 'NOT RECOMMENDED UNDER 6 MONTHS OF AGE',
+        schedule: 'INDICATED STARTING AT 6 MONTHS OF AGE',
         rationale: 'Infants <6 months are too young to receive influenza vaccines. Protection relies entirely on maternal immunization during pregnancy and cocooning of caregivers.',
         contraindications: 'Age < 6 months (FDA boundary)',
         sourceCitation: 'CDC ACIP Seasonal Influenza Schedule / FDA Prescribing Information',
@@ -275,10 +278,10 @@ export default function App() {
         name: 'COVID-19 Formulation',
         brandExamples: 'Spikevax, Comirnaty',
         fdaAgeRange: 'Approved starting at ≥6 months of age',
-        category: 'contraindicated',
+        category: 'deferred',
         priority: 'informational',
-        schedule: 'NOT INDICATED UNDER 6 MONTHS OF AGE',
-        rationale: 'COVID-19 vaccines are only authorized and recommended for infants aged 6 months and older.',
+        schedule: 'ELIGIBLE STARTING AT 6 MONTHS OF AGE',
+        rationale: 'COVID-19 vaccines are authorized and recommended starting at 6 months of age.',
         contraindications: 'Age < 6 months',
         sourceCitation: 'CDC ACIP COVID-19 Schedule',
       });
@@ -339,7 +342,7 @@ export default function App() {
         });
       }
 
-      // DTaP (Pediatric <7 years)
+      // DTaP (<7 years)
       if (ageInYears < 7) {
         list.push({
           id: 'ped_dtap',
@@ -355,6 +358,37 @@ export default function App() {
             : 'Booster doses at 15-18 months and 4-6 years of age',
           rationale: 'Standard pediatric active immunization against tetanus, diphtheria, and pertussis before age 7.',
           sourceCitation: 'CDC ACIP DTaP Schedule / FDA Package Insert (Infanrix)',
+        });
+      }
+
+      // Inactivated Poliovirus (IPV)
+      if (patient.history.ipvCompleted) {
+        list.push({
+          id: 'ipv_done',
+          name: 'Inactivated Poliovirus (IPV)',
+          brandExamples: 'IPOL',
+          fdaAgeRange: 'Approved starting at 6 weeks of age',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Series Completed (4 doses documented)',
+          rationale: 'Documented 4-dose primary pediatric series confers lifelong protection against poliovirus paralysis.',
+          sourceCitation: 'CDC ACIP Child and Adolescent Immunization Schedule',
+        });
+      } else {
+        list.push({
+          id: 'ped_ipv',
+          name: 'Inactivated Poliovirus (IPV)',
+          brandExamples: 'IPOL',
+          fdaAgeRange: 'Approved starting at 6 weeks of age',
+          category: 'routine',
+          priority: 'high',
+          schedule: ageInMonths < 2 
+            ? 'Dose 1 at 2 months of age'
+            : ageInMonths < 18 
+            ? '4-dose series: doses at 2, 4, 6-18 months, and 4-6 years (final dose on/after 4th birthday)'
+            : 'Complete 4-dose catch-up series prior to adulthood',
+          rationale: 'Universal routine pediatric schedule to prevent paralytic poliomyelitis.',
+          sourceCitation: 'CDC ACIP Inactivated Poliovirus Vaccine Recommendations',
         });
       }
 
@@ -766,14 +800,14 @@ export default function App() {
     } else if (ageInMonths < 12) {
       list.push({
         id: 'mmr_infant_wait',
-        name: 'MMR & Varicella Vaccines',
+        name: 'MMR & Varicella Vaccines (Deferred Until 12 Months)',
         brandExamples: 'M-M-R II, Priorix, Varivax',
-        fdaAgeRange: 'Routine approval starting at ≥12 months',
-        category: 'contraindicated',
+        fdaAgeRange: 'Routine approval starting at ≥12 months of age',
+        category: 'deferred',
         priority: 'informational',
-        schedule: 'DOSE 1 INDICATED AT 12-15 MONTHS OF AGE',
-        rationale: 'Circulating maternal transplacental IgG antibodies interfere with live measles vaccine response before 12 months. (Dose at 6-11 months only indicated off-label for urgent international travel, must be repeated at 12 months).',
-        contraindications: 'Routine Age < 12 months (Maternal antibody interference)',
+        schedule: 'Dose 1 indicated at 12 through 15 months of age',
+        rationale: 'Circulating maternal transplacental IgG antibodies neutralize live viral replication before 12 months, reducing seroconversion. (Off-label dose at 6-11 months given only for immediate international travel, but must still be repeated at ≥12 months).',
+        contraindications: 'Age-Based Restriction: Routine start at 12–15 months (Maternal antibody interference)',
         sourceCitation: 'CDC ACIP Child and Adolescent Immunization Schedule',
       });
     } else if (ageInYears < 50) {
@@ -807,7 +841,7 @@ export default function App() {
       if (!matchesSearch) return false;
       if (activeTab === 'indicated') return rec.category === 'routine' || rec.category === 'risk-based';
       if (activeTab === 'scdm') return rec.category === 'shared-decision';
-      if (activeTab === 'contraindicated') return rec.category === 'contraindicated';
+      if (activeTab === 'contraindicated') return rec.category === 'contraindicated' || rec.category === 'deferred';
       return true;
     });
   }, [recommendations, searchQuery, activeTab]);
@@ -823,6 +857,7 @@ export default function App() {
     const indicated = recommendations.filter(r => r.category === 'routine' || r.category === 'risk-based');
     const scdm = recommendations.filter(r => r.category === 'shared-decision');
     const contra = recommendations.filter(r => r.category === 'contraindicated');
+    const deferred = recommendations.filter(r => r.category === 'deferred');
 
     return `CLINICAL IMMUNIZATION ASSESSMENT & ADVISORY NOTE
 =====================================================
@@ -838,6 +873,7 @@ PRIOR DOCUMENTED DOSES:
 - Tdap within 10 years: ${patient.history.tdapWithin10Yrs ? 'Yes' : 'No'}
 - Shingrix 2-Dose Series: ${patient.history.shingrixCompleted ? 'Completed' : 'Incomplete/None'}
 - Prior Pneumococcal: ${patient.history.priorPneumococcal.toUpperCase()}
+- Prior Polio (IPV): ${patient.history.ipvCompleted ? 'Completed' : 'Incomplete/None'}
 - Prior Hib: ${patient.history.hibReceived ? 'Documented' : 'None/Unknown'}
 - Prior MenACWY: ${patient.history.menAcwyCompleted ? 'Documented' : 'None/Unknown'}
 - Prior MenB: ${patient.history.menBCompleted ? 'Documented' : 'None/Unknown'}
@@ -847,6 +883,9 @@ ${indicated.length > 0 ? indicated.map(r => `• ${r.name} (${r.brandExamples})\
 
 SHARED CLINICAL DECISION-MAKING (SCDM) DISCUSSIONS:
 ${scdm.length > 0 ? scdm.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA Indication: ${r.fdaAgeRange}\n  - Considerations: ${r.rationale}\n  - Ref: ${r.sourceCitation}`).join('\n') : '• None'}
+
+AGE-BASED TIMING RESTRICTIONS & DEFERRED VACCINES:
+${deferred.length > 0 ? deferred.map(r => `• ${r.name}\n  - Status: ${r.contraindications}\n  - Schedule: ${r.schedule}`).join('\n') : '• None'}
 
 CONTRAINDICATIONS / SAFETY FLAGS:
 ${contra.length > 0 ? contra.map(r => `• CRITICAL: ${r.name}\n  - Reason: ${r.contraindications}\n  - Clinical Rationale: ${r.rationale}`).join('\n') : '• No active contraindications flagged'}
@@ -874,7 +913,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            Automated clinical decision engine with newborn/pediatric month intervals, manufacturer FDA age criteria, & ACIP shared decision-making.
+            Automated clinical decision engine with newborn/pediatric month intervals, IPV polio schedules, & ACIP shared decision-making.
           </p>
         </div>
         
@@ -933,7 +972,6 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                   Patient Age Selection
                 </label>
                 
-                {/* Unit Switcher: Years vs Months */}
                 <div className="inline-flex rounded-lg bg-slate-200 p-0.5 text-xs font-semibold">
                   <button
                     type="button"
@@ -974,7 +1012,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                   <input
                     type="number"
                     min="0"
-                    max={patient.ageUnit === 'months' ? 120 : 120}
+                    max={120}
                     value={patient.ageValue}
                     onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
                     className="w-full h-10 px-3 text-center text-lg font-bold text-indigo-950 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition"
@@ -1132,6 +1170,16 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={patient.history.ipvCompleted}
+                    onChange={(e) => updateHistory('ipvCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Completed Inactivated Polio (IPV) 4-Dose Series</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
                     checked={patient.history.tdapWithin10Yrs}
                     onChange={(e) => updateHistory('tdapWithin10Yrs', e.target.checked)}
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
@@ -1255,7 +1303,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                   activeTab === 'contraindicated' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Warnings ({recommendations.filter(r => r.category === 'contraindicated').length})
+                Warnings ({recommendations.filter(r => r.category === 'contraindicated' || r.category === 'deferred').length})
               </button>
             </div>
           </div>
@@ -1269,6 +1317,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             ) : (
               filteredRecs.map((rec) => {
                 const isContra = rec.category === 'contraindicated';
+                const isDeferred = rec.category === 'deferred';
                 const isRoutine = rec.category === 'routine';
                 const isShared = rec.category === 'shared-decision';
                 const isCompleted = rec.category === 'completed';
@@ -1279,6 +1328,8 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                     className={`bg-white rounded-xl border p-4 transition shadow-xs print:border-slate-300 print:shadow-none ${
                       isContra
                         ? 'border-rose-300 bg-rose-50/40'
+                        : isDeferred
+                        ? 'border-sky-200 bg-sky-50/30'
                         : isCompleted
                         ? 'border-slate-200 bg-slate-50/70 opacity-80'
                         : isShared
@@ -1295,6 +1346,8 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                             className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                               isContra
                                 ? 'bg-rose-100 text-rose-800'
+                                : isDeferred
+                                ? 'bg-sky-100 text-sky-800'
                                 : isCompleted
                                 ? 'bg-slate-200 text-slate-700'
                                 : isShared
@@ -1306,6 +1359,8 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                           >
                             {isContra 
                               ? 'Contraindication' 
+                              : isDeferred
+                              ? 'Age-Based Restriction'
                               : isCompleted 
                               ? 'Documented / Completed' 
                               : isShared 
@@ -1321,6 +1376,8 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                       <div>
                         {isContra ? (
                           <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                        ) : isDeferred ? (
+                          <Clock className="w-5 h-5 text-sky-600 shrink-0" />
                         ) : isCompleted ? (
                           <CheckCircle2 className="w-5 h-5 text-slate-400 shrink-0" />
                         ) : isShared ? (
@@ -1349,11 +1406,13 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                       <span>{rec.rationale}</span>
                     </div>
 
-                    {/* Contraindication detail if any */}
+                    {/* Safety flag or timing delay detail */}
                     {rec.contraindications && (
-                      <div className="mt-2 text-xs font-semibold text-rose-700 flex items-center gap-1.5 bg-rose-100/70 p-2 rounded-md">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                        <span>Contraindicated by: {rec.contraindications}</span>
+                      <div className={`mt-2 text-xs font-semibold flex items-center gap-1.5 p-2 rounded-md ${
+                        isContra ? 'bg-rose-100/70 text-rose-700' : 'bg-sky-100/70 text-sky-800'
+                      }`}>
+                        {isContra ? <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" /> : <Clock className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
+                        <span>{rec.contraindications}</span>
                       </div>
                     )}
 
@@ -1389,7 +1448,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             
             <div className="text-xs space-y-3 text-slate-700 leading-relaxed">
               <p>
-                <strong>General Rule for Inactivated Vaccines:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap, MenACWY, MenB, Hib) can be co-administered simultaneously at separate anatomical injection sites.
+                <strong>General Rule for Inactivated Vaccines:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap, IPV, MenACWY, MenB, Hib) can be co-administered simultaneously at separate anatomical injection sites.
               </p>
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
                 <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
