@@ -28,6 +28,9 @@ interface PriorDoseState {
   shingrixCompleted: boolean;
   priorPneumococcal: 'none' | 'pcv15' | 'pcv20' | 'ppsv23_only';
   hepbCompleted: boolean;
+  hibReceived: boolean;
+  menAcwyCompleted: boolean;
+  menBCompleted: boolean;
 }
 
 interface PatientProfile {
@@ -56,7 +59,7 @@ const CONDITIONS_LIST = [
   { id: 'cardiopulmonary', label: 'Chronic Heart / Lung Disease (COPD, Asthma, CHF)' },
   { id: 'liver_kidney', label: 'Chronic Liver Disease / ESRD / Dialysis' },
   { id: 'immunocompromised', label: 'Immunocompromised (HIV, Chemo, Biologics, Transplant)' },
-  { id: 'asplenia', label: 'Asplenia / Complement Deficiency' },
+  { id: 'asplenia', label: 'Asplenia / Complement Deficiency / Sickle Cell' },
   { id: 'smoking', label: 'Current Cigarette Smoker' },
 ];
 
@@ -68,7 +71,7 @@ const SETTINGS_LIST = [
 
 export default function App() {
   const [patient, setPatient] = useState<PatientProfile>({
-    age: 52,
+    age: 0,
     isPregnant: false,
     conditions: [],
     settings: [],
@@ -79,6 +82,9 @@ export default function App() {
       shingrixCompleted: false,
       priorPneumococcal: 'none',
       hepbCompleted: false,
+      hibReceived: false,
+      menAcwyCompleted: false,
+      menBCompleted: false,
     }
   });
 
@@ -118,7 +124,7 @@ export default function App() {
 
   const resetForm = () => {
     setPatient({
-      age: 30,
+      age: 0,
       isPregnant: false,
       conditions: [],
       settings: [],
@@ -129,6 +135,9 @@ export default function App() {
         shingrixCompleted: false,
         priorPneumococcal: 'none',
         hepbCompleted: false,
+        hibReceived: false,
+        menAcwyCompleted: false,
+        menBCompleted: false,
       }
     });
   };
@@ -143,7 +152,8 @@ export default function App() {
     const list: VaccineRecommendation[] = [];
     const hasCondition = (id: string) => patient.conditions.includes(id);
     const hasSetting = (id: string) => patient.settings.includes(id);
-    const isImmuno = hasCondition('immunocompromised') || hasCondition('asplenia');
+    const isImmuno = hasCondition('immunocompromised');
+    const isAsplenia = hasCondition('asplenia');
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
     // 1. INFLUENZA
@@ -200,7 +210,7 @@ export default function App() {
         rationale: 'ACIP Guideline: Recommended based on individual-based / shared clinical decision-making (SCDM). Risk-benefit is highly favorable in older adults due to elevated hospitalization risk.',
         sourceCitation: 'CDC ACIP Recommendations for Individual Decision-Making for COVID-19 Vaccination',
       });
-    } else if (isImmuno || hasChronic || patient.isPregnant) {
+    } else if (isImmuno || isAsplenia || hasChronic || patient.isPregnant) {
       list.push({
         id: 'covid_risk',
         name: 'COVID-19 (Updated Formulation)',
@@ -209,7 +219,7 @@ export default function App() {
         category: 'shared-decision',
         priority: 'high',
         schedule: isImmuno ? '1 dose updated formulation + eligible for additional dose ≥2 months later' : '1 dose updated seasonal formulation',
-        rationale: 'ACIP Guideline: Shared Clinical Decision-Making (SCDM) for individuals <65 years. The risk-benefit ratio is most favorable for individuals with chronic conditions, immunocompromise, or pregnancy.',
+        rationale: 'ACIP Guideline: Shared Clinical Decision-Making (SCDM) for individuals <65 years. The risk-benefit ratio is most favorable for individuals with chronic conditions, immunocompromise, asplenia, or pregnancy.',
         sourceCitation: 'CDC MMWR / ACIP Update: Guidance for COVID-19 Immunization via Individual Decision-Making',
       });
     } else {
@@ -312,7 +322,7 @@ export default function App() {
       }
     }
 
-    // 5. SHINGLES (Shingrix)
+    // 5. SHINGLES (RZV - Immunocompromise Indication)
     if (patient.history.shingrixCompleted) {
       list.push({
         id: 'shingrix_done',
@@ -336,12 +346,12 @@ export default function App() {
         schedule: '2-dose intramuscular series (0, 2-6 months; 0, 1-2 months if immunocompromised)',
         rationale: patient.age >= 50
           ? 'Routinely recommended for all immunocompetent adults ≥50 years regardless of prior zoster disease or Zostavax.'
-          : 'Indicated for adults 19-49 who are immunodeficient or immunosuppressed due to heightened reactivation risk.',
+          : 'Indicated for adults 19-49 who are or will be immunodeficient or immunosuppressed due to disease or therapy.',
         sourceCitation: 'CDC ACIP MMWR Recommendations for Use of Recombinant Zoster Vaccine',
       });
     }
 
-    // 6. PNEUMOCOCCAL
+    // 6. PNEUMOCOCCAL (Tailored with Prior History)
     if (patient.history.priorPneumococcal === 'pcv20') {
       list.push({
         id: 'pneumo_completed',
@@ -353,6 +363,32 @@ export default function App() {
         schedule: 'Complete single-dose PCV20/PCV21 regimen already documented',
         rationale: 'A single dose of PCV20 or PCV21 provides broad, durable capsular serotype coverage without requiring routine PPSV23 booster.',
         sourceCitation: 'CDC ACIP Pneumococcal Vaccination Schedule Guidelines',
+      });
+    } else if (patient.history.priorPneumococcal === 'ppsv23_only') {
+      list.push({
+        id: 'pneumo_post_ppsv23',
+        name: 'Pneumococcal Conjugate (Post-PPSV23 Catch-Up)',
+        brandExamples: 'Prevnar 20 (PCV20), Capvaxive (PCV21), or Vaxneuvance (PCV15)',
+        fdaAgeRange: 'PCV20: ≥6 wks; PCV21: ≥18 yrs; PCV15: ≥6 wks',
+        category: 'risk-based',
+        priority: 'high',
+        schedule: '1 dose PCV20, PCV21, or PCV15 administered ≥ 1 year after the most recent PPSV23 dose. No further PPSV23 doses needed.',
+        rationale: 'For patients who previously received PPSV23 only, a conjugate vaccine (PCV20, PCV21, or PCV15) is recommended ≥1 year later to establish conjugate T-cell dependent immune memory without further PPSV23 booster doses.',
+        sourceCitation: 'CDC MMWR / ACIP Pneumococcal Vaccination for Adults with Previous PPSV23',
+      });
+    } else if (patient.history.priorPneumococcal === 'pcv15') {
+      list.push({
+        id: 'pneumo_post_pcv15',
+        name: 'Pneumococcal Polysaccharide (PPSV23 Follow-up)',
+        brandExamples: 'Pneumovax 23 (PPSV23)',
+        fdaAgeRange: 'PPSV23: ≥2 yrs',
+        category: 'risk-based',
+        priority: 'high',
+        schedule: (isImmuno || isAsplenia) 
+          ? '1 dose PPSV23 administered ≥ 8 weeks after PCV15' 
+          : '1 dose PPSV23 administered ≥ 1 year after PCV15',
+        rationale: 'Completion of two-step series following initial PCV15 dose.',
+        sourceCitation: 'CDC ACIP Pneumococcal Recommendations',
       });
     } else if (patient.age >= 50) {
       list.push({
@@ -366,23 +402,115 @@ export default function App() {
         rationale: 'CDC routinely recommends pneumococcal immunization starting at age 50 to protect against invasive pneumococcal disease and pneumonia.',
         sourceCitation: 'CDC ACIP Updated Pneumococcal Recommendations / Capvaxive FDA Approval',
       });
-    } else if (hasChronic || isImmuno) {
+    } else if (hasChronic || isImmuno || isAsplenia) {
       list.push({
         id: 'pneumo_highrisk',
-        name: 'Pneumococcal Conjugate (Risk Indication 19-49)',
+        name: 'Pneumococcal Conjugate (High Risk 19-49)',
         brandExamples: 'Prevnar 20 (PCV20) or Capvaxive (PCV21)',
         fdaAgeRange: 'Prevnar 20: ≥6 wks; Capvaxive: ≥18 yrs',
         category: 'risk-based',
         priority: 'high',
-        schedule: isImmuno 
-          ? '1 dose PCV20/21 (or PCV15 followed by PPSV23 ≥8 weeks later)' 
-          : '1 dose PCV20 or PCV21 (or PCV15 followed by PPSV23 ≥1 year later)',
-        rationale: 'Indicated for adults 19-49 with chronic medical conditions or immunocompromising states.',
+        schedule: (isImmuno || isAsplenia)
+          ? '1 dose PCV20 or PCV21 alone (or PCV15 followed by PPSV23 ≥8 weeks later)'
+          : '1 dose PCV20 or PCV21 alone (or PCV15 followed by PPSV23 ≥1 year later)',
+        rationale: 'Indicated for adults 19-49 with chronic medical conditions, asplenia, or immunocompromising states due to heightened risk of invasive pneumococcal disease (IPD).',
         sourceCitation: 'CDC MMWR / ACIP Pneumococcal Conjugate Vaccines in Adults with Underlying Conditions',
       });
     }
 
-    // 7. RSV
+    // 7. ASPLENIA SPECIFIC ENCAPSULATED ORGANISM COVERAGE
+    // Meningococcal ACWY
+    if (isAsplenia || hasSetting('college_dorm') || hasSetting('travel')) {
+      if (patient.history.menAcwyCompleted && !isAsplenia) {
+        list.push({
+          id: 'men_acwy_done',
+          name: 'Meningococcal ACWY (MenACWY)',
+          brandExamples: 'MenQuadfi, Menveo',
+          fdaAgeRange: 'Menveo: ≥2 mos; MenQuadfi: ≥2 yrs',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Documented Series Completed',
+          rationale: 'Up to date for standard risk indications.',
+          sourceCitation: 'CDC ACIP Meningococcal Schedule',
+        });
+      } else {
+        list.push({
+          id: 'men_acwy',
+          name: 'Meningococcal ACWY (MenACWY)',
+          brandExamples: 'MenQuadfi, Menveo',
+          fdaAgeRange: 'Menveo: ≥2 mos; MenQuadfi: ≥2 yrs',
+          category: 'risk-based',
+          priority: 'high',
+          schedule: isAsplenia 
+            ? '2-dose primary series administered ≥ 8 weeks apart, followed by a booster dose every 5 years throughout life' 
+            : '1 dose (booster every 5 years if persistent exposure/travel risk)',
+          rationale: isAsplenia
+            ? 'CRITICAL FOR ASPLENIA: Anatomic/functional asplenia impairs clearance of encapsulated Neisseria meningitidis, predisposing to fulminant meningococcemia. Requires 2-dose primary series + 5-year lifelong boosters.'
+            : 'Indicated for dormitory residents or travel to hyperendemic regions.',
+          sourceCitation: 'CDC MMWR / Recommendations for Use of Meningococcal Conjugate Vaccines in Persons with Anatomic or Functional Asplenia',
+        });
+      }
+    }
+
+    // Meningococcal B
+    if (isAsplenia) {
+      if (patient.history.menBCompleted) {
+        list.push({
+          id: 'men_b_booster',
+          name: 'Meningococcal B (MenB - Booster Due)',
+          brandExamples: 'Bexsero (2-dose initial), Trumenba (3-dose initial)',
+          fdaAgeRange: 'Bexsero & Trumenba: Approved for individuals 10 through 25 years (and older if high risk)',
+          category: 'risk-based',
+          priority: 'high',
+          schedule: '1 booster dose 1 year after primary series completion, then regular booster every 2-3 years while asplenic',
+          rationale: 'Waning bactericidal antibodies against Serogroup B necessitate regular boosters in patients with asplenia.',
+          sourceCitation: 'CDC ACIP Meningococcal B Recommendations for High-Risk Individuals',
+        });
+      } else {
+        list.push({
+          id: 'men_b_primary',
+          name: 'Meningococcal B (MenB Series)',
+          brandExamples: 'Bexsero (2-dose series: 0, 1 mo) or Trumenba (3-dose series: 0, 1-2, 6 mos)',
+          fdaAgeRange: 'Bexsero & Trumenba: Approved for age ≥10 years in persons at increased risk',
+          category: 'risk-based',
+          priority: 'high',
+          schedule: 'Bexsero: 2 doses (0, 1 month) OR Trumenba: 3 doses (0, 1-2, 6 months). Follow with booster 1 year later.',
+          rationale: 'CRITICAL FOR ASPLENIA: High risk for invasive Serogroup B meningococcal disease. Brands are NOT interchangeable; complete full series with same manufacturer.',
+          sourceCitation: 'CDC MMWR / Use of Serogroup B Meningococcal Vaccines in Persons with High-Risk Conditions',
+        });
+      }
+    }
+
+    // Haemophilus influenzae type b (Hib)
+    if (isAsplenia) {
+      if (patient.history.hibReceived) {
+        list.push({
+          id: 'hib_done',
+          name: 'Haemophilus influenzae type b (Hib)',
+          brandExamples: 'ActHIB, Hiberix, PedvaxHIB',
+          fdaAgeRange: 'ActHIB/Hiberix/PedvaxHIB: Approved in infants & indicated in asplenic adults',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Documented 1-dose series received',
+          rationale: 'Asplenic patient has documented protection against Hib encapsulated bacteremia.',
+          sourceCitation: 'CDC ACIP Hib Vaccination Guidelines',
+        });
+      } else {
+        list.push({
+          id: 'hib_asplenia',
+          name: 'Haemophilus influenzae type b (Hib)',
+          brandExamples: 'ActHIB, Hiberix, or PedvaxHIB',
+          fdaAgeRange: 'PedvaxHIB: ≥6 wks; ActHIB/Hiberix: ≥6 wks; Indicated across all ages with asplenia',
+          category: 'risk-based',
+          priority: 'high',
+          schedule: '1 dose IM if no documented childhood/adult series (at least 14 days prior to elective splenectomy if planned)',
+          rationale: 'CRITICAL FOR ASPLENIA: Asplenia eliminates splenic phagocytic clearance of encapsulated H. influenzae, creating susceptibility to rapid septic shock.',
+          sourceCitation: 'CDC ACIP Guidelines for Hib Vaccination in Persons with Functional or Anatomic Asplenia',
+        });
+      }
+    }
+
+    // 8. RSV
     if (patient.age >= 75) {
       list.push({
         id: 'rsv_75',
@@ -421,7 +549,7 @@ export default function App() {
       });
     }
 
-    // 8. HEPATITIS B
+    // 9. HEPATITIS B
     if (patient.history.hepbCompleted) {
       list.push({
         id: 'hepb_done',
@@ -460,7 +588,8 @@ export default function App() {
       });
     }
 
-    // 9. LIVE VACCINES & CONTRAINDICATIONS
+    // 10. LIVE VACCINES (MMR & VARICELLA)
+    // Only contraindicated for PREGNANCY and SEVERE IMMUNOCOMPROMISE (NOT isolated asplenia)
     if (patient.isPregnant || isImmuno) {
       list.push({
         id: 'contra_live',
@@ -470,7 +599,7 @@ export default function App() {
         category: 'contraindicated',
         priority: 'critical',
         schedule: 'ABSOLUTELY CONTRAINDICATED (DO NOT ADMINISTER)',
-        rationale: 'Live attenuated viral replication carries severe risk of congenital rubella syndrome, fetal viremia, or disseminated fatal infection in immunocompromised hosts.',
+        rationale: 'Live attenuated viral replication carries severe risk of congenital rubella syndrome, fetal viremia, or unchecked disseminated infection in severely immunocompromised hosts.',
         contraindications: patient.isPregnant ? 'Active Pregnancy' : 'Severe Immunocompromise / T-cell deficiency',
         sourceCitation: 'CDC General Best Practice Guidelines for Immunization: Contraindications and Precautions',
       });
@@ -483,7 +612,7 @@ export default function App() {
         category: 'routine',
         priority: 'medium',
         schedule: '1 to 2 doses if no laboratory presumptive immunity or documented childhood series',
-        rationale: 'Indicated for adults born in 1957 or later lacking documented proof of vaccination or serologic titer immunity.',
+        rationale: 'Indicated for adults born in 1957 or later lacking documented proof of vaccination or serologic titer immunity. Safe in asplenia and chronic metabolic disease.',
         sourceCitation: 'CDC ACIP Adult Catch-up Guidelines for Measles, Mumps, Rubella, and Varicella',
       });
     }
@@ -527,6 +656,9 @@ PRIOR DOCUMENTED DOSES:
 - Tdap within 10 years: ${patient.history.tdapWithin10Yrs ? 'Yes' : 'No'}
 - Shingrix 2-Dose Series: ${patient.history.shingrixCompleted ? 'Completed' : 'Incomplete/None'}
 - Prior Pneumococcal: ${patient.history.priorPneumococcal.toUpperCase()}
+- Prior Hib: ${patient.history.hibReceived ? 'Documented' : 'None/Unknown'}
+- Prior MenACWY: ${patient.history.menAcwyCompleted ? 'Documented' : 'None/Unknown'}
+- Prior MenB: ${patient.history.menBCompleted ? 'Documented' : 'None/Unknown'}
 
 RECOMMENDED ROUTINE / RISK-BASED IMMUNIZATIONS:
 ${indicated.length > 0 ? indicated.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA Indication:${r.fdaAgeRange}\n  - Schedule: ${r.schedule}\n  - Ref:${r.sourceCitation}`).join('\n') : '• None currently due'}
@@ -560,7 +692,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            Automated clinical decision engine with manufacturer FDA age criteria & ACIP shared decision-making protocols.
+            Automated clinical decision engine with manufacturer FDA age criteria, asplenia protocols, & ACIP shared decision-making.
           </p>
         </div>
         
@@ -593,7 +725,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-white hover:bg-slate-100 text-rose-600 border border-slate-300 rounded-lg shadow-xs transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Reset
+            Reset (Age 0)
           </button>
         </div>
       </header>
@@ -612,14 +744,14 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Step 1</span>
             </div>
 
-            {/* Age Slider and Stepper */}
+            {/* Age Input */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
                   Patient Age
                 </label>
                 <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
-                  {patient.age < 1 ? '<1 year (Infant)' : `${patient.age} years old`}
+                  {patient.age === 0 ? '0 (Infant / Newborn)' : `${patient.age} years old`}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -634,8 +766,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                   type="number"
                   min="0"
                   max="120"
-                  value={patient.age === 0 ? '' : patient.age}
-                  placeholder="0"
+                  value={patient.age}
                   onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
                   className="flex-1 h-10 px-3 text-center text-lg font-bold text-indigo-900 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                 />
@@ -796,6 +927,36 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                   <span>Completed Hepatitis B series</span>
                 </label>
 
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.hibReceived}
+                    onChange={(e) => updateHistory('hibReceived', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Documented Prior Hib Vaccine (Adult or Child)</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.menAcwyCompleted}
+                    onChange={(e) => updateHistory('menAcwyCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Completed Initial MenACWY 2-Dose Series</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.menBCompleted}
+                    onChange={(e) => updateHistory('menBCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Completed Initial MenB Series (Bexsero or Trumenba)</span>
+                </label>
+
                 <div className="pt-2 border-t border-slate-100">
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
                     Prior Documented Pneumococcal Dose:
@@ -807,7 +968,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                   >
                     <option value="none">None / Unknown</option>
                     <option value="pcv20">PCV20 or PCV21 (Complete)</option>
-                    <option value="pcv15">PCV15 (requires PPSV23 follow-up)</option>
+                    <option value="pcv15">PCV15 (requires follow-up)</option>
                     <option value="ppsv23_only">PPSV23 Only in past</option>
                   </select>
                 </div>
@@ -996,13 +1157,16 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             
             <div className="text-xs space-y-3 text-slate-700 leading-relaxed">
               <p>
-                <strong>General Rule for Inactivated Vaccines:</strong> Most inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap) can be co-administered at separate anatomical injection sites during the same clinical visit.
+                <strong>General Rule for Inactivated Vaccines:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap, MenACWY, MenB, Hib) can be co-administered simultaneously at separate anatomical injection sites.
               </p>
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
-                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Live parenteral vaccines must either be administered on the <em>same calendar day</em> OR spaced apart by a <em>minimum of 28 days</em> to avoid immune interference.
+                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
               </div>
               <p>
-                <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent adults) or ≥8 weeks later (immunocompromised adults). Do not administer simultaneously.
+                <strong>Asplenia MenACWY / PCV Spacing:</strong> If Menactra (an older MenACWY-D conjugate) is used, administer PCV first and separate from Menactra by $\ge 4$ weeks to prevent interference. (Not applicable to Menveo or MenQuadfi).
+              </p>
+              <p>
+                <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent) or $\ge 8$ weeks later (immunocompromised or asplenia). Never administer PCV15 and PPSV23 together at the same visit.
               </p>
             </div>
 
