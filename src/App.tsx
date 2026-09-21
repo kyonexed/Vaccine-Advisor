@@ -34,7 +34,8 @@ interface PriorDoseState {
 }
 
 interface PatientProfile {
-  age: number;
+  ageValue: number;
+  ageUnit: 'years' | 'months';
   isPregnant: boolean;
   conditions: string[];
   settings: string[];
@@ -69,9 +70,36 @@ const SETTINGS_LIST = [
   { id: 'travel', label: 'International Travel to Endemic Regions' },
 ];
 
+const PRESET_YEARS = [
+  { value: 0, label: '0 (Newborn / Infant)' },
+  { value: 1, label: '1 year old' },
+  { value: 2, label: '2 years old' },
+  { value: 4, label: '4 years old (Kindergarten entry)' },
+  { value: 11, label: '11 years old (Adolescent vaccines)' },
+  { value: 16, label: '16 years old (MenACWY booster)' },
+  { value: 19, label: '19 years old (Adult schedule entry)' },
+  { value: 27, label: '27 years old (HPV shared decision)' },
+  { value: 50, label: '50 years old (PCV / Shingrix threshold)' },
+  { value: 65, label: '65 years old (Senior High-Dose Flu)' },
+  { value: 75, label: '75 years old (Universal RSV)' },
+];
+
+const PRESET_MONTHS = [
+  { value: 0, label: '0 months (Birth / Newborn)' },
+  { value: 1, label: '1 month' },
+  { value: 2, label: '2 months (Pediatric Series Dose 1)' },
+  { value: 4, label: '4 months (Pediatric Series Dose 2)' },
+  { value: 6, label: '6 months (Pediatric Dose 3 & Flu Start)' },
+  { value: 12, label: '12 months (MMR / Varicella Dose 1)' },
+  { value: 15, label: '15 months (DTaP Dose 4)' },
+  { value: 18, label: '18 months (HepA Dose 2)' },
+  { value: 23, label: '23 months (Toddler milestone)' },
+];
+
 export default function App() {
   const [patient, setPatient] = useState<PatientProfile>({
-    age: 0,
+    ageValue: 0,
+    ageUnit: 'months',
     isPregnant: false,
     conditions: [],
     settings: [],
@@ -93,6 +121,19 @@ export default function App() {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showCoAdminModal, setShowCoAdminModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Convert months to fractional years for clinical decision engine
+  const ageInYears = useMemo(() => {
+    return patient.ageUnit === 'months' 
+      ? patient.ageValue / 12 
+      : patient.ageValue;
+  }, [patient.ageValue, patient.ageUnit]);
+
+  const ageInMonths = useMemo(() => {
+    return patient.ageUnit === 'months'
+      ? patient.ageValue
+      : Math.round(patient.ageValue * 12);
+  }, [patient.ageValue, patient.ageUnit]);
 
   const toggleCondition = (id: string) => {
     setPatient(prev => ({
@@ -124,7 +165,8 @@ export default function App() {
 
   const resetForm = () => {
     setPatient({
-      age: 0,
+      ageValue: 0,
+      ageUnit: 'months',
       isPregnant: false,
       conditions: [],
       settings: [],
@@ -143,8 +185,20 @@ export default function App() {
   };
 
   const handleAgeChange = (value: number) => {
-    const validAge = isNaN(value) ? 0 : Math.max(0, Math.min(120, value));
-    setPatient(prev => ({ ...prev, age: validAge }));
+    const max = patient.ageUnit === 'months' ? 120 : 120;
+    const valid = isNaN(value) ? 0 : Math.max(0, Math.min(max, value));
+    setPatient(prev => ({ ...prev, ageValue: valid }));
+  };
+
+  const handleUnitToggle = (unit: 'years' | 'months') => {
+    if (unit === patient.ageUnit) return;
+    if (unit === 'months') {
+      const converted = Math.min(120, Math.round(patient.ageValue * 12));
+      setPatient(prev => ({ ...prev, ageUnit: 'months', ageValue: converted }));
+    } else {
+      const converted = Math.min(120, Math.floor(patient.ageValue / 12));
+      setPatient(prev => ({ ...prev, ageUnit: 'years', ageValue: converted }));
+    }
   };
 
   // Comprehensive ACIP Evaluation Engine
@@ -169,16 +223,31 @@ export default function App() {
         rationale: 'Patient has already received seasonal influenza vaccination for the current cycle.',
         sourceCitation: 'CDC MMWR / Prevention and Control of Seasonal Influenza with Vaccines: ACIP Recommendations',
       });
+    } else if (ageInMonths < 6) {
+      list.push({
+        id: 'flu_too_young',
+        name: 'Influenza (Seasonal Flu)',
+        brandExamples: 'Standard IIV4 / ccIIV4',
+        fdaAgeRange: 'Approved for age ≥6 months only',
+        category: 'contraindicated',
+        priority: 'informational',
+        schedule: 'NOT RECOMMENDED UNDER 6 MONTHS OF AGE',
+        rationale: 'Infants <6 months are too young to receive influenza vaccines. Protection relies entirely on maternal immunization during pregnancy and cocooning of caregivers.',
+        contraindications: 'Age < 6 months (FDA boundary)',
+        sourceCitation: 'CDC ACIP Seasonal Influenza Schedule / FDA Prescribing Information',
+      });
     } else {
       list.push({
         id: 'flu',
         name: 'Influenza (Seasonal Flu)',
-        brandExamples: patient.age >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV4/RIV4 or ccIIV4 (Inactivated only in pregnancy)',
-        fdaAgeRange: patient.age >= 65 ? 'High-dose/Adjuvanted: ≥65 years' : 'Standard IIV4: ≥6 months',
+        brandExamples: ageInYears >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV4/RIV4 or ccIIV4 (Inactivated only in pregnancy)',
+        fdaAgeRange: ageInYears >= 65 ? 'High-dose/Adjuvanted: ≥65 years' : 'Standard IIV4: ≥6 months',
         category: 'routine',
         priority: 'high',
-        schedule: '1 dose annually every autumn/winter season',
-        rationale: patient.age >= 65 
+        schedule: ageInYears < 9 
+          ? '2 doses spaced ≥4 weeks apart if first-time flu vaccine recipient, otherwise 1 annual seasonal dose'
+          : '1 dose annually every autumn/winter season',
+        rationale: ageInYears >= 65 
           ? 'Age ≥65: Higher-dose or adjuvanted influenza vaccine is preferentially recommended for enhanced immunogenicity.'
           : patient.isPregnant
           ? 'Recommended in any trimester of pregnancy (inactivated IIV4 or recombinant RIV4 only) to prevent maternal-fetal morbidity.'
@@ -187,7 +256,7 @@ export default function App() {
       });
     }
 
-    // 2. COVID-19 (Shared Decision Making Guidance)
+    // 2. COVID-19
     if (patient.history.covidRecent) {
       list.push({
         id: 'covid_done',
@@ -197,10 +266,23 @@ export default function App() {
         category: 'completed',
         priority: 'informational',
         schedule: 'Up to date for current seasonal cycle',
-        rationale: 'Patient reports recent receipt of the updated seasonal formulation. Additional doses indicated only for immunocompromise.',
+        rationale: 'Patient reports recent receipt of the updated seasonal formulation.',
         sourceCitation: 'CDC ACIP COVID-19 Clinical Considerations',
       });
-    } else if (patient.age >= 65) {
+    } else if (ageInMonths < 6) {
+      list.push({
+        id: 'covid_too_young',
+        name: 'COVID-19 Formulation',
+        brandExamples: 'Spikevax, Comirnaty',
+        fdaAgeRange: 'Approved starting at ≥6 months of age',
+        category: 'contraindicated',
+        priority: 'informational',
+        schedule: 'NOT INDICATED UNDER 6 MONTHS OF AGE',
+        rationale: 'COVID-19 vaccines are only authorized and recommended for infants aged 6 months and older.',
+        contraindications: 'Age < 6 months',
+        sourceCitation: 'CDC ACIP COVID-19 Schedule',
+      });
+    } else if (ageInYears >= 65) {
       list.push({
         id: 'covid_senior',
         name: 'COVID-19 (Updated Formulation)',
@@ -238,23 +320,27 @@ export default function App() {
       });
     }
 
-    // 3. PEDIATRIC SPECIFIC (Age < 19)
-    if (patient.age < 19) {
-      if (patient.age < 1) {
+    // 3. PEDIATRIC SPECIFIC (Months & Child Schedule)
+    if (ageInYears < 19) {
+      // Rotavirus
+      if (ageInMonths <= 8) {
         list.push({
           id: 'ped_rotavirus',
           name: 'Rotavirus (RV1 / RV5)',
-          brandExamples: 'Rotarix (RV1 - 2 doses), RotaTeq (RV5 - 3 doses)',
-          fdaAgeRange: '6 weeks through 8 months 0 days',
+          brandExamples: 'Rotarix (RV1 - 2 doses: 2, 4 mos), RotaTeq (RV5 - 3 doses: 2, 4, 6 mos)',
+          fdaAgeRange: 'Minimum age 6 weeks; Maximum age for final dose is 8 months 0 days',
           category: 'routine',
           priority: 'high',
-          schedule: '2-dose (2, 4 mos) or 3-dose (2, 4, 6 mos) oral series. Max age for final dose is 8 mos 0 days.',
-          rationale: 'Prevents severe rotavirus gastroenteritis and dehydration in infants.',
-          sourceCitation: 'CDC Child and Adolescent Immunization Schedule / MMWR Rotavirus ACIP Guidelines',
+          schedule: ageInMonths < 2 
+            ? 'First dose administered starting at 6 weeks through 14 weeks 6 days' 
+            : '2-dose (2, 4 mos) or 3-dose (2, 4, 6 mos) oral series before 8 months 0 days',
+          rationale: 'Protects infants against severe dehydrating rotavirus gastroenteritis.',
+          sourceCitation: 'CDC Recommended Child and Adolescent Immunization Schedule / MMWR Rotavirus ACIP Guidelines',
         });
       }
 
-      if (patient.age < 7) {
+      // DTaP (Pediatric <7 years)
+      if (ageInYears < 7) {
         list.push({
           id: 'ped_dtap',
           name: 'DTaP (Diphtheria, Tetanus, acellular Pertussis)',
@@ -262,13 +348,18 @@ export default function App() {
           fdaAgeRange: '6 weeks through 6 years (up to 7th birthday)',
           category: 'routine',
           priority: 'high',
-          schedule: '5-dose primary series at 2, 4, 6, 15-18 months, and 4-6 years',
+          schedule: ageInMonths < 2 
+            ? 'First dose at 2 months of age'
+            : ageInMonths < 15 
+            ? 'Primary series at 2, 4, and 6 months'
+            : 'Booster doses at 15-18 months and 4-6 years of age',
           rationale: 'Standard pediatric active immunization against tetanus, diphtheria, and pertussis before age 7.',
           sourceCitation: 'CDC ACIP DTaP Schedule / FDA Package Insert (Infanrix)',
         });
       }
 
-      if (patient.age >= 11 && patient.age <= 12) {
+      // Adolescent Tdap & MenACWY
+      if (ageInYears >= 11 && ageInYears <= 12) {
         list.push({
           id: 'ped_adolescent_booster',
           name: 'Adolescent Tdap & MenACWY',
@@ -283,8 +374,8 @@ export default function App() {
       }
     }
 
-    // 4. TDAP / TD
-    if (patient.age >= 19 || patient.isPregnant) {
+    // 4. TDAP / TD (Adults ≥ 19 or Pregnant)
+    if (ageInYears >= 19 || patient.isPregnant) {
       if (patient.isPregnant) {
         list.push({
           id: 'tdap_preg',
@@ -324,7 +415,7 @@ export default function App() {
       }
     }
 
-    // 5. SHINGLES (RZV - Immunocompromise Indication + Pregnancy Caution)
+    // 5. SHINGLES (RZV)
     if (patient.history.shingrixCompleted) {
       list.push({
         id: 'shingrix_done',
@@ -346,10 +437,10 @@ export default function App() {
         category: 'risk-based',
         priority: 'medium',
         schedule: 'Defer 2-dose series until postpartum (unless acute clinical risk overrides lack of pregnancy safety data)',
-        rationale: 'Although RZV is a non-live recombinant subunit vaccine, ACIP recommends deferring administration until postpartum due to limited clinical trial data during pregnancy, unless imminent immunosuppressive risks outweigh potential concerns.',
+        rationale: 'Although RZV is a non-live recombinant subunit vaccine, ACIP recommends deferring administration until postpartum due to limited clinical trial data during pregnancy.',
         sourceCitation: 'CDC ACIP Guidelines for Vaccination of Immunocompromised Adults & Pregnant Women',
       });
-    } else if (patient.age >= 50 || (patient.age >= 19 && isImmuno)) {
+    } else if (ageInYears >= 50 || (ageInYears >= 19 && isImmuno)) {
       list.push({
         id: 'shingrix',
         name: 'Zoster Vaccine Recombinant (Shingrix)',
@@ -358,14 +449,14 @@ export default function App() {
         category: 'routine',
         priority: 'high',
         schedule: '2-dose intramuscular series (0, 2-6 months; 0, 1-2 months if immunocompromised)',
-        rationale: patient.age >= 50
+        rationale: ageInYears >= 50
           ? 'Routinely recommended for all immunocompetent adults ≥50 years regardless of prior zoster disease or Zostavax.'
           : 'Indicated for adults 19-49 who are or will be immunodeficient or immunosuppressed due to disease or therapy.',
         sourceCitation: 'CDC ACIP MMWR Recommendations for Use of Recombinant Zoster Vaccine',
       });
     }
 
-    // 6. PNEUMOCOCCAL (Tailored with Prior History)
+    // 6. PNEUMOCOCCAL
     if (patient.history.priorPneumococcal === 'pcv20') {
       list.push({
         id: 'pneumo_completed',
@@ -387,7 +478,7 @@ export default function App() {
         category: 'risk-based',
         priority: 'high',
         schedule: '1 dose PCV20, PCV21, or PCV15 administered ≥ 1 year after the most recent PPSV23 dose. No further PPSV23 doses needed.',
-        rationale: 'For patients who previously received PPSV23 only, a conjugate vaccine (PCV20, PCV21, or PCV15) is recommended ≥1 year later to establish conjugate T-cell dependent immune memory without further PPSV23 booster doses.',
+        rationale: 'For patients who previously received PPSV23 only, a conjugate vaccine (PCV20, PCV21, or PCV15) is recommended ≥1 year later to establish conjugate T-cell dependent immune memory.',
         sourceCitation: 'CDC MMWR / ACIP Pneumococcal Vaccination for Adults with Previous PPSV23',
       });
     } else if (patient.history.priorPneumococcal === 'pcv15') {
@@ -404,7 +495,19 @@ export default function App() {
         rationale: 'Completion of two-step series following initial PCV15 dose.',
         sourceCitation: 'CDC ACIP Pneumococcal Recommendations',
       });
-    } else if (patient.age >= 50) {
+    } else if (ageInYears < 2) {
+      list.push({
+        id: 'ped_pcv20',
+        name: 'Pneumococcal Conjugate (Pediatric PCV20/PCV15)',
+        brandExamples: 'Prevnar 20 (PCV20) or Vaxneuvance (PCV15)',
+        fdaAgeRange: 'Approved starting at 6 weeks of age',
+        category: 'routine',
+        priority: 'high',
+        schedule: '4-dose series given at 2, 4, 6, and 12-15 months of age',
+        rationale: 'Routinely prevents invasive pneumococcal disease (meningitis, bacteremia) and otitis media in infants.',
+        sourceCitation: 'CDC ACIP Infant Pneumococcal Conjugate Immunization Schedule',
+      });
+    } else if (ageInYears >= 50) {
       list.push({
         id: 'pneumo_routine',
         name: 'Pneumococcal Conjugate (PCV20 or PCV21)',
@@ -419,7 +522,7 @@ export default function App() {
     } else if (hasChronic || isImmuno || isAsplenia) {
       list.push({
         id: 'pneumo_highrisk',
-        name: 'Pneumococcal Conjugate (High Risk 19-49)',
+        name: 'Pneumococcal Conjugate (High Risk 2-49)',
         brandExamples: 'Prevnar 20 (PCV20) or Capvaxive (PCV21)',
         fdaAgeRange: 'Prevnar 20: ≥6 wks; Capvaxive: ≥18 yrs',
         category: 'risk-based',
@@ -427,13 +530,13 @@ export default function App() {
         schedule: (isImmuno || isAsplenia)
           ? '1 dose PCV20 or PCV21 alone (or PCV15 followed by PPSV23 ≥8 weeks later)'
           : '1 dose PCV20 or PCV21 alone (or PCV15 followed by PPSV23 ≥1 year later)',
-        rationale: 'Indicated for adults 19-49 with chronic medical conditions, asplenia, or immunocompromising states due to heightened risk of invasive pneumococcal disease (IPD).',
+        rationale: 'Indicated for individuals with chronic medical conditions, asplenia, or immunocompromising states due to heightened risk of invasive pneumococcal disease (IPD).',
         sourceCitation: 'CDC MMWR / ACIP Pneumococcal Conjugate Vaccines in Adults with Underlying Conditions',
       });
     }
 
-    // 7. ASPLENIA SPECIFIC ENCAPSULATED ORGANISM COVERAGE
-    // Meningococcal ACWY
+    // 7. ASPLENIA ENCAPSULATED ORGANISM COVERAGE
+    // MenACWY
     if (isAsplenia || hasSetting('college_dorm') || hasSetting('travel')) {
       if (patient.history.menAcwyCompleted && !isAsplenia) {
         list.push({
@@ -466,8 +569,8 @@ export default function App() {
       }
     }
 
-    // Meningococcal B
-    if (isAsplenia) {
+    // MenB
+    if (isAsplenia && ageInYears >= 10) {
       if (patient.history.menBCompleted) {
         list.push({
           id: 'men_b_booster',
@@ -489,15 +592,15 @@ export default function App() {
           category: 'risk-based',
           priority: 'high',
           schedule: 'Bexsero: 2 doses (0, 1 month) OR Trumenba: 3 doses (0, 1-2, 6 months). Follow with booster 1 year later.',
-          rationale: 'CRITICAL FOR ASPLENIA: High risk for invasive Serogroup B meningococcal disease. Brands are NOT interchangeable; complete full series with same manufacturer.',
+          rationale: 'CRITICAL FOR ASPLENIA: High risk for invasive Serogroup B meningococcal disease. Brands are NOT interchangeable.',
           sourceCitation: 'CDC MMWR / Use of Serogroup B Meningococcal Vaccines in Persons with High-Risk Conditions',
         });
       }
     }
 
-    // Haemophilus influenzae type b (Hib)
-    if (isAsplenia) {
-      if (patient.history.hibReceived) {
+    // Hib
+    if (isAsplenia || ageInYears < 5) {
+      if (patient.history.hibReceived && isAsplenia) {
         list.push({
           id: 'hib_done',
           name: 'Haemophilus influenzae type b (Hib)',
@@ -505,11 +608,23 @@ export default function App() {
           fdaAgeRange: 'ActHIB/Hiberix/PedvaxHIB: Approved in infants & indicated in asplenic adults',
           category: 'completed',
           priority: 'informational',
-          schedule: 'Documented 1-dose series received',
-          rationale: 'Asplenic patient has documented protection against Hib encapsulated bacteremia.',
+          schedule: 'Documented series received',
+          rationale: 'Documented protection against Hib encapsulated bacteremia.',
           sourceCitation: 'CDC ACIP Hib Vaccination Guidelines',
         });
-      } else {
+      } else if (ageInMonths < 15) {
+        list.push({
+          id: 'hib_infant',
+          name: 'Haemophilus influenzae type b (Hib Series)',
+          brandExamples: 'ActHIB, Hiberix, PedvaxHIB',
+          fdaAgeRange: 'Approved starting at 6 weeks of age',
+          category: 'routine',
+          priority: 'high',
+          schedule: 'Primary series at 2, 4, (6) months, plus booster dose at 12-15 months',
+          rationale: 'Universal routine infant recommendation preventing epiglottitis and bacteremic meningitis.',
+          sourceCitation: 'CDC ACIP Recommended Child and Adolescent Schedule',
+        });
+      } else if (isAsplenia) {
         list.push({
           id: 'hib_asplenia',
           name: 'Haemophilus influenzae type b (Hib)',
@@ -525,7 +640,7 @@ export default function App() {
     }
 
     // 8. RSV
-    if (patient.age >= 75) {
+    if (ageInYears >= 75) {
       list.push({
         id: 'rsv_75',
         name: 'Respiratory Syncytial Virus (RSV)',
@@ -537,7 +652,7 @@ export default function App() {
         rationale: 'Routinely recommended for all adults aged ≥75 years to prevent severe lower respiratory tract disease (LRTD).',
         sourceCitation: 'CDC ACIP Adult RSV Vaccination Guidelines',
       });
-    } else if (patient.age >= 50 && (hasChronic || isImmuno)) {
+    } else if (ageInYears >= 50 && (hasChronic || isImmuno)) {
       list.push({
         id: 'rsv_risk',
         name: 'RSV Vaccine (Risk Indication 50-74)',
@@ -563,7 +678,7 @@ export default function App() {
       });
     }
 
-    // 9. HEPATITIS B (Tailored for Pregnancy Safety vs Non-pregnant)
+    // 9. HEPATITIS B
     if (patient.history.hepbCompleted) {
       list.push({
         id: 'hepb_done',
@@ -585,10 +700,22 @@ export default function App() {
         category: 'risk-based',
         priority: 'high',
         schedule: '3-dose series (0, 1, 6 months) using standard single-antigen vaccine. DO NOT USE Heplisav-B or PreHevbrio.',
-        rationale: 'Indicated during pregnancy for patients with occupational exposure, diabetes, ESRD, or chronic liver risk. ACIP explicitly advises using standard alum-adjuvanted vaccines (Engerix-B/Recombivax HB); CpG-adjuvanted (Heplisav-B) and 3-antigen (PreHevbrio) vaccines lack safety data during pregnancy.',
+        rationale: 'Indicated during pregnancy for patients with occupational exposure, diabetes, ESRD, or chronic liver risk. ACIP explicitly advises using standard alum-adjuvanted vaccines (Engerix-B/Recombivax HB).',
         sourceCitation: 'CDC ACIP Recommendations for Hepatitis B Vaccination During Pregnancy / MMWR Guidelines',
       });
-    } else if (patient.age >= 19 && patient.age <= 59) {
+    } else if (ageInYears < 1) {
+      list.push({
+        id: 'hepb_infant',
+        name: 'Hepatitis B (Infant Series)',
+        brandExamples: 'Engerix-B, Recombivax HB',
+        fdaAgeRange: 'Approved starting at birth (0 days)',
+        category: 'routine',
+        priority: 'high',
+        schedule: 'Monovalent birth dose within 24 hours of life; followed by doses at 1-2 and 6-18 months (total 3-4 doses)',
+        rationale: 'Universal routine infant immunization starting within 24 hours of birth prevents vertical perinatal and early childhood transmission.',
+        sourceCitation: 'CDC ACIP Infant Hepatitis B Immunization Schedule',
+      });
+    } else if (ageInYears >= 1 && ageInYears <= 59) {
       list.push({
         id: 'hepb_routine',
         name: 'Hepatitis B Recombinant',
@@ -596,11 +723,13 @@ export default function App() {
         fdaAgeRange: 'Heplisav-B: ≥18 yrs; PreHevbrio: ≥18 yrs; Engerix-B: all ages',
         category: 'routine',
         priority: 'medium',
-        schedule: 'Heplisav-B: 2 doses (0, 1 mo) OR 3 doses Engerix-B (0, 1, 6 mos)',
-        rationale: 'Universal routine recommendation for all non-immune adults aged 19 through 59 without requiring risk disclosure.',
+        schedule: ageInYears >= 18 
+          ? 'Heplisav-B: 2 doses (0, 1 mo) OR 3 doses Engerix-B (0, 1, 6 mos)' 
+          : '3 doses Engerix-B / Recombivax HB (0, 1, 6 mos)',
+        rationale: 'Universal routine recommendation for all non-immune individuals aged birth through 59 years.',
         sourceCitation: 'CDC MMWR / Universal Hepatitis B Vaccination in Adults Aged 19–59 Years',
       });
-    } else if (patient.age >= 60 && (hasSetting('healthcare') || hasCondition('diabetes') || hasCondition('liver_kidney'))) {
+    } else if (ageInYears >= 60 && (hasSetting('healthcare') || hasCondition('diabetes') || hasCondition('liver_kidney'))) {
       list.push({
         id: 'hepb_risk',
         name: 'Hepatitis B (Risk Indication ≥60)',
@@ -615,7 +744,6 @@ export default function App() {
     }
 
     // 10. LIVE VACCINES (MMR & VARICELLA)
-    // Document both pregnancy AND severe immunocompromise when both are present
     if (patient.isPregnant || isImmuno) {
       const contraReason = patient.isPregnant && isImmuno
         ? 'Active Pregnancy AND Severe Immunocompromise / T-cell deficiency'
@@ -635,22 +763,37 @@ export default function App() {
         contraindications: contraReason,
         sourceCitation: 'CDC General Best Practice Guidelines for Immunization: Contraindications and Precautions',
       });
-    } else if (patient.age >= 12 && patient.age < 50) {
+    } else if (ageInMonths < 12) {
+      list.push({
+        id: 'mmr_infant_wait',
+        name: 'MMR & Varicella Vaccines',
+        brandExamples: 'M-M-R II, Priorix, Varivax',
+        fdaAgeRange: 'Routine approval starting at ≥12 months',
+        category: 'contraindicated',
+        priority: 'informational',
+        schedule: 'DOSE 1 INDICATED AT 12-15 MONTHS OF AGE',
+        rationale: 'Circulating maternal transplacental IgG antibodies interfere with live measles vaccine response before 12 months. (Dose at 6-11 months only indicated off-label for urgent international travel, must be repeated at 12 months).',
+        contraindications: 'Routine Age < 12 months (Maternal antibody interference)',
+        sourceCitation: 'CDC ACIP Child and Adolescent Immunization Schedule',
+      });
+    } else if (ageInYears < 50) {
       list.push({
         id: 'mmr_catchup',
-        name: 'MMR & Varicella (Catch-up Series)',
+        name: 'MMR & Varicella Series',
         brandExamples: 'M-M-R II or Priorix, Varivax',
         fdaAgeRange: '≥12 months through adults',
         category: 'routine',
         priority: 'medium',
-        schedule: '1 to 2 doses if no laboratory presumptive immunity or documented childhood series',
-        rationale: 'Indicated for adults born in 1957 or later lacking documented proof of vaccination or serologic titer immunity. Safe in asplenia and chronic metabolic disease.',
-        sourceCitation: 'CDC ACIP Adult Catch-up Guidelines for Measles, Mumps, Rubella, and Varicella',
+        schedule: ageInYears < 7 
+          ? '2-dose routine pediatric series: Dose 1 at 12-15 months, Dose 2 at 4-6 years' 
+          : '1 to 2 doses if no laboratory presumptive immunity or documented series',
+        rationale: 'Standard immunization against Measles, Mumps, Rubella, and Varicella. Safe in asplenia and chronic metabolic disease.',
+        sourceCitation: 'CDC ACIP Catch-up Guidelines for Measles, Mumps, Rubella, and Varicella',
       });
     }
 
     return list;
-  }, [patient]);
+  }, [patient, ageInYears, ageInMonths]);
 
   const filteredRecs = useMemo(() => {
     return recommendations.filter(rec => {
@@ -669,6 +812,13 @@ export default function App() {
     });
   }, [recommendations, searchQuery, activeTab]);
 
+  const patientAgeDisplay = useMemo(() => {
+    if (patient.ageUnit === 'months') {
+      return `${patient.ageValue} ${patient.ageValue === 1 ? 'month' : 'months'} old (${ageInYears.toFixed(2)} yrs)`;
+    }
+    return `${patient.ageValue} ${patient.ageValue === 1 ? 'year' : 'years'} old`;
+  }, [patient.ageValue, patient.ageUnit, ageInYears]);
+
   const clinicalNoteText = useMemo(() => {
     const indicated = recommendations.filter(r => r.category === 'routine' || r.category === 'risk-based');
     const scdm = recommendations.filter(r => r.category === 'shared-decision');
@@ -677,7 +827,7 @@ export default function App() {
     return `CLINICAL IMMUNIZATION ASSESSMENT & ADVISORY NOTE
 =====================================================
 PATIENT CLINICAL SUMMARY:
-- Age: ${patient.age} years
+- Age: ${patientAgeDisplay}
 - Pregnancy Status: ${patient.isPregnant ? 'Yes (Maternal Protocol Active)' : 'No'}
 - Risk Conditions: ${patient.conditions.length > 0 ? patient.conditions.join(', ') : 'None documented'}
 - Occupational/Living Setting: ${patient.settings.length > 0 ? patient.settings.join(', ') : 'Standard'}
@@ -693,16 +843,16 @@ PRIOR DOCUMENTED DOSES:
 - Prior MenB: ${patient.history.menBCompleted ? 'Documented' : 'None/Unknown'}
 
 RECOMMENDED ROUTINE / RISK-BASED IMMUNIZATIONS:
-${indicated.length > 0 ? indicated.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA Indication:${r.fdaAgeRange}\n  - Schedule: ${r.schedule}\n  - Ref:${r.sourceCitation}`).join('\n') : '• None currently due'}
+${indicated.length > 0 ? indicated.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA Indication: ${r.fdaAgeRange}\n  - Schedule: ${r.schedule}\n  - Ref: ${r.sourceCitation}`).join('\n') : '• None currently due'}
 
 SHARED CLINICAL DECISION-MAKING (SCDM) DISCUSSIONS:
-${scdm.length > 0 ? scdm.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA Indication:${r.fdaAgeRange}\n  - Considerations: ${r.rationale}\n  - Ref:${r.sourceCitation}`).join('\n') : '• None'}
+${scdm.length > 0 ? scdm.map(r => `• ${r.name} (${r.brandExamples})\n  - FDA Indication: ${r.fdaAgeRange}\n  - Considerations: ${r.rationale}\n  - Ref: ${r.sourceCitation}`).join('\n') : '• None'}
 
 CONTRAINDICATIONS / SAFETY FLAGS:
-${contra.length > 0 ? contra.map(r => `• CRITICAL: ${r.name}\n  - Reason: ${r.contraindications}\n  - Clinical Rationale:${r.rationale}`).join('\n') : '• No active contraindications flagged'}
+${contra.length > 0 ? contra.map(r => `• CRITICAL: ${r.name}\n  - Reason: ${r.contraindications}\n  - Clinical Rationale: ${r.rationale}`).join('\n') : '• No active contraindications flagged'}
 
 Assessed per CDC / ACIP Clinical Guidelines.`;
-  }, [patient, recommendations]);
+  }, [patient, recommendations, patientAgeDisplay]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(clinicalNoteText);
@@ -724,7 +874,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            Automated clinical decision engine with manufacturer FDA age criteria, maternal/asplenia protocols, & ACIP shared decision-making.
+            Automated clinical decision engine with newborn/pediatric month intervals, manufacturer FDA age criteria, & ACIP shared decision-making.
           </p>
         </div>
         
@@ -757,7 +907,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-white hover:bg-slate-100 text-rose-600 border border-slate-300 rounded-lg shadow-xs transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Reset (Age 0)
+            Reset (0 Mos)
           </button>
         </div>
       </header>
@@ -776,45 +926,95 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Step 1</span>
             </div>
 
-            {/* Age Input */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Patient Age
+            {/* Age Selection with Unit Toggle, Stepper, and Quick Presets */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Patient Age Selection
                 </label>
-                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
-                  {patient.age === 0 ? '0 (Infant / Newborn)' : `${patient.age} years old`}
-                </span>
+                
+                {/* Unit Switcher: Years vs Months */}
+                <div className="inline-flex rounded-lg bg-slate-200 p-0.5 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => handleUnitToggle('months')}
+                    className={`px-2.5 py-1 rounded-md transition ${
+                      patient.ageUnit === 'months' 
+                        ? 'bg-white text-indigo-700 shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Months (Pediatric)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUnitToggle('years')}
+                    className={`px-2.5 py-1 rounded-md transition ${
+                      patient.ageUnit === 'years' 
+                        ? 'bg-white text-indigo-700 shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Years (Adult)
+                  </button>
+                </div>
               </div>
+
+              {/* Manual Stepper & Input */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleAgeChange(patient.age - 1)}
-                  className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 font-bold transition shrink-0"
+                  onClick={() => handleAgeChange(patient.ageValue - 1)}
+                  className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-300 font-bold shadow-xs transition shrink-0"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={patient.age}
-                  onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
-                  className="flex-1 h-10 px-3 text-center text-lg font-bold text-indigo-900 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-                />
+                
+                <div className="flex-1 relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max={patient.ageUnit === 'months' ? 120 : 120}
+                    value={patient.ageValue}
+                    onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
+                    className="w-full h-10 px-3 text-center text-lg font-bold text-indigo-950 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                    {patient.ageUnit}
+                  </span>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleAgeChange(patient.age + 1)}
-                  className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 font-bold transition shrink-0"
+                  onClick={() => handleAgeChange(patient.ageValue + 1)}
+                  className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-300 font-bold shadow-xs transition shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex justify-between text-[11px] text-slate-400 mt-1.5 px-1 font-mono">
-                <span>0 (Infant)</span>
-                <span>19 (Adult)</span>
-                <span>50 (PCV/RZV)</span>
-                <span>65+ (High-Dose Flu)</span>
+
+              {/* Quick Jump Dropdown Menu */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
+                  Quick Landmark Milestones:
+                </label>
+                <select
+                  value={patient.ageValue}
+                  onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-indigo-500"
+                >
+                  {(patient.ageUnit === 'months' ? PRESET_MONTHS : PRESET_YEARS).map((preset) => (
+                    <option key={preset.value} value={preset.value}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status summary banner */}
+              <div className="flex justify-between items-center text-[11px] text-indigo-900 bg-indigo-50/70 px-2.5 py-1.5 rounded-md border border-indigo-100 font-medium">
+                <span>Active Clinical Evaluation:</span>
+                <span className="font-bold">{patientAgeDisplay}</span>
               </div>
             </div>
 
@@ -822,7 +1022,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
               <div>
                 <div className="text-xs font-bold text-slate-800">Currently Pregnant?</div>
-                <div className="text-[11px] text-slate-500">Activates maternal Tdap/RSV; contraindicates live MMR/Varicella</div>
+                <div className="text-[11px] text-slate-500">Activates maternal Tdap/RSV; flags live vaccines</div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -1194,6 +1394,9 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
                 <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
               </div>
+              <p>
+                <strong>Asplenia MenACWY / PCV Spacing:</strong> If Menactra (an older MenACWY-D conjugate) is used, administer PCV first and separate from Menactra by $\ge 4$ weeks to prevent interference. (Not applicable to Menveo or MenQuadfi).
+              </p>
               <p>
                 <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent) or $\ge 8$ weeks later (immunocompromised or asplenia). Never administer PCV15 and PPSV23 together at the same visit.
               </p>
