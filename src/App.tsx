@@ -11,15 +11,15 @@ import {
   RefreshCw, 
   Scale, 
   Minus, 
-  Plus,
-  ClipboardCopy,
-  Printer,
-  History,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  BookOpen,
-  Clock
+  Plus, 
+  ClipboardCopy, 
+  Printer, 
+  History, 
+  Layers, 
+  ChevronDown, 
+  ChevronUp, 
+  BookOpen, 
+  Clock 
 } from 'lucide-react';
 
 interface PriorDoseState {
@@ -29,10 +29,13 @@ interface PriorDoseState {
   shingrixCompleted: boolean;
   priorPneumococcal: 'none' | 'pcv15' | 'pcv20' | 'ppsv23_only';
   hepbCompleted: boolean;
+  hepaCompleted: boolean;
   hibReceived: boolean;
   menAcwyCompleted: boolean;
   menBCompleted: boolean;
   ipvCompleted: boolean;
+  hpvCompleted: boolean;
+  maternalRsvReceived: boolean;
 }
 
 interface PatientProfile {
@@ -77,12 +80,14 @@ const PRESET_YEARS = [
   { value: 1, label: '1 year old' },
   { value: 2, label: '2 years old' },
   { value: 4, label: '4 years old (Kindergarten entry)' },
-  { value: 11, label: '11 years old (Adolescent vaccines)' },
-  { value: 16, label: '16 years old (MenACWY booster)' },
+  { value: 9, label: '9 years old (HPV earliest eligible)' },
+  { value: 11, label: '11 years old (Adolescent Tdap / MenACWY / HPV)' },
+  { value: 16, label: '16 years old (MenACWY booster / MenB eligible)' },
+  { value: 18, label: '18 years old (Adult transition)' },
   { value: 19, label: '19 years old (Adult schedule entry)' },
   { value: 27, label: '27 years old (HPV shared decision)' },
   { value: 50, label: '50 years old (PCV / Shingrix threshold)' },
-  { value: 65, label: '65 years old (Senior High-Dose Flu)' },
+  { value: 65, label: '65 years old (Senior High-Dose Flu / COVID booster)' },
   { value: 75, label: '75 years old (Universal RSV)' },
 ];
 
@@ -91,10 +96,10 @@ const PRESET_MONTHS = [
   { value: 1, label: '1 month' },
   { value: 2, label: '2 months (Pediatric Series Dose 1)' },
   { value: 4, label: '4 months (Pediatric Series Dose 2)' },
-  { value: 6, label: '6 months (Pediatric Dose 3 & Flu Start)' },
-  { value: 12, label: '12 months (MMR / Varicella Dose 1)' },
+  { value: 6, label: '6 months (Pediatric Dose 3 & Flu / COVID Start)' },
+  { value: 12, label: '12 months (MMR / Varicella / HepA Dose 1)' },
   { value: 15, label: '15 months (DTaP Dose 4)' },
-  { value: 18, label: '18 months (HepA Dose 2)' },
+  { value: 18, label: '18 months (HepA Dose 2 completion)' },
   { value: 23, label: '23 months (Toddler milestone)' },
 ];
 
@@ -112,10 +117,13 @@ export default function App() {
       shingrixCompleted: false,
       priorPneumococcal: 'none',
       hepbCompleted: false,
+      hepaCompleted: false,
       hibReceived: false,
       menAcwyCompleted: false,
       menBCompleted: false,
       ipvCompleted: false,
+      hpvCompleted: false,
+      maternalRsvReceived: false,
     }
   });
 
@@ -179,10 +187,13 @@ export default function App() {
         shingrixCompleted: false,
         priorPneumococcal: 'none',
         hepbCompleted: false,
+        hepaCompleted: false,
         hibReceived: false,
         menAcwyCompleted: false,
         menBCompleted: false,
         ipvCompleted: false,
+        hpvCompleted: false,
+        maternalRsvReceived: false,
       }
     });
   };
@@ -204,7 +215,7 @@ export default function App() {
     }
   };
 
-  // ACIP Evaluation Engine
+  // Comprehensive ACIP Evaluation Engine
   const recommendations: VaccineRecommendation[] = useMemo(() => {
     const list: VaccineRecommendation[] = [];
     const hasCondition = (id: string) => patient.conditions.includes(id);
@@ -213,77 +224,120 @@ export default function App() {
     const isAsplenia = hasCondition('asplenia');
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
-    // 1. INFLUENZA
+    // ==========================================
+    // 1. INFLUENZA (Trivalent IIV3 / ccIIV3 / LAIV3)
+    // ==========================================
     if (patient.history.fluThisSeason) {
       list.push({
         id: 'flu_done',
-        name: 'Influenza (Seasonal Flu)',
-        brandExamples: 'Fluzone, Fluarix, Flublok, Fluzone High-Dose',
-        fdaAgeRange: 'Fluzone/Fluarix: ≥6 mos; Flublok: ≥18 yrs; Fluzone HD/Fluad: ≥65 yrs',
+        name: 'Influenza (Seasonal Trivalent)',
+        brandExamples: 'Fluzone, Fluarix, Flucelvax, Flublok, Fluzone High-Dose',
+        fdaAgeRange: 'IIV3/ccIIV3: ≥6 mos; Flublok: ≥18 yrs; Fluzone HD/Fluad: ≥65 yrs',
         category: 'completed',
         priority: 'informational',
         schedule: 'Documented for current season',
         rationale: 'Patient has already received seasonal influenza vaccination for the current cycle.',
-        sourceCitation: 'CDC MMWR / Prevention and Control of Seasonal Influenza with Vaccines: ACIP Recommendations',
+        sourceCitation: 'CDC Child and Adolescent Immunization Schedule / ACIP Seasonal Influenza Recommendations',
       });
     } else if (ageInMonths < 6) {
       list.push({
         id: 'flu_too_young',
         name: 'Influenza (Seasonal Flu)',
-        brandExamples: 'Standard IIV4 / ccIIV4',
+        brandExamples: 'Standard IIV3 / ccIIV3',
         fdaAgeRange: 'Approved for age ≥6 months only',
         category: 'deferred',
         priority: 'informational',
         schedule: 'INDICATED STARTING AT 6 MONTHS OF AGE',
-        rationale: 'Infants <6 months are too young to receive influenza vaccines. Protection relies entirely on maternal immunization during pregnancy and cocooning of caregivers.',
+        rationale: 'Infants <6 months are too young to receive influenza vaccines. Protection relies on maternal immunization during pregnancy and cocooning.',
         contraindications: 'Age < 6 months (FDA boundary)',
         sourceCitation: 'CDC ACIP Seasonal Influenza Schedule / FDA Prescribing Information',
       });
     } else {
       list.push({
         id: 'flu',
-        name: 'Influenza (Seasonal Flu)',
-        brandExamples: ageInYears >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV4/RIV4 or ccIIV4 (Inactivated only in pregnancy)',
-        fdaAgeRange: ageInYears >= 65 ? 'High-dose/Adjuvanted: ≥65 years' : 'Standard IIV4: ≥6 months',
+        name: 'Influenza (Seasonal Flu - Trivalent IIV3 / ccIIV3)',
+        brandExamples: ageInYears >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV3 or ccIIV3 (Inactivated only in pregnancy)',
+        fdaAgeRange: ageInYears >= 65 ? 'High-dose/Adjuvanted: ≥65 years' : 'Standard IIV3: ≥6 months; LAIV3: 2 through 49 years',
         category: 'routine',
         priority: 'high',
         schedule: ageInYears < 9 
-          ? '2 doses spaced ≥4 weeks apart if first-time flu vaccine recipient, otherwise 1 annual seasonal dose'
+          ? '2 doses spaced ≥4 weeks apart if first-time flu vaccine recipient, otherwise 1 annual seasonal dose' 
           : '1 dose annually every autumn/winter season',
         rationale: ageInYears >= 65 
           ? 'Age ≥65: Higher-dose or adjuvanted influenza vaccine is preferentially recommended for enhanced immunogenicity.'
           : patient.isPregnant
-          ? 'Recommended in any trimester of pregnancy (inactivated IIV4 or recombinant RIV4 only) to prevent maternal-fetal morbidity.'
+          ? 'Recommended in any trimester of pregnancy (inactivated IIV3 or recombinant RIV3 only) to prevent maternal-fetal morbidity.'
           : 'Universal annual recommendation for all individuals aged ≥6 months without contraindications.',
-        sourceCitation: 'CDC MMWR Recommendations and Reports / ACIP Seasonal Influenza Schedule',
+        sourceCitation: 'CDC Child & Adolescent Immunization Schedule (Table 1: By Age) / MMWR Guidelines',
       });
     }
 
-    // 2. COVID-19
+    // ==========================================
+    // 2. COVID-19 (Updated Formula & Age Rules)
+    // ==========================================
     if (patient.history.covidRecent) {
       list.push({
         id: 'covid_done',
         name: 'COVID-19 (Updated Formulation)',
-        brandExamples: 'Spikevax (Moderna), Comirnaty (Pfizer), Novavax',
-        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; Novavax: ≥12 yrs',
+        brandExamples: 'Moderna, Pfizer-BioNTech, Novavax',
+        fdaAgeRange: 'Moderna: ≥6 mos; Pfizer-BioNTech: ≥6 mos; Novavax: ≥12 yrs',
         category: 'completed',
         priority: 'informational',
         schedule: 'Up to date for current seasonal cycle',
         rationale: 'Patient reports recent receipt of the updated seasonal formulation.',
-        sourceCitation: 'CDC ACIP COVID-19 Clinical Considerations',
+        sourceCitation: 'CDC Guidance for COVID-19 Vaccination by Age & History',
       });
     } else if (ageInMonths < 6) {
       list.push({
         id: 'covid_too_young',
         name: 'COVID-19 Formulation',
-        brandExamples: 'Spikevax, Comirnaty',
+        brandExamples: 'Moderna, Pfizer-BioNTech',
         fdaAgeRange: 'Approved starting at ≥6 months of age',
         category: 'deferred',
         priority: 'informational',
         schedule: 'ELIGIBLE STARTING AT 6 MONTHS OF AGE',
         rationale: 'COVID-19 vaccines are authorized and recommended starting at 6 months of age.',
         contraindications: 'Age < 6 months',
-        sourceCitation: 'CDC ACIP COVID-19 Schedule',
+        sourceCitation: 'CDC Child & Adolescent Immunization Schedule',
+      });
+    } else if (ageInYears < 5) {
+      // Age 6 months - 4 years
+      list.push({
+        id: 'covid_infant_toddler',
+        name: 'COVID-19 (Pediatric 6 mos–4 yrs)',
+        brandExamples: 'Moderna (2-dose initial) OR Pfizer-BioNTech (3-dose initial)',
+        fdaAgeRange: 'Moderna: 6 mos–11 yrs; Pfizer-BioNTech: 6 mos–4 yrs',
+        category: 'routine',
+        priority: 'high',
+        schedule: 'Unvaccinated: 2 doses Moderna (0, 4-8 wks) OR 3 doses Pfizer-BioNTech (0, 3-8 wks, and ≥8 wks after dose 2). All doses should be from same manufacturer.',
+        rationale: 'CDC Guidance: For children 6 months–4 years, complete multi-dose initial series using the same manufacturer. If previously received incomplete series, complete with 1-2 updated doses.',
+        sourceCitation: 'CDC Interim Clinical Considerations / Routine Vaccination for Ages 6 mos–4 yrs',
+      });
+    } else if (ageInYears >= 5 && ageInYears < 12) {
+      // Age 5 - 11 years
+      list.push({
+        id: 'covid_pediatric_5_11',
+        name: 'COVID-19 (Children 5–11 yrs)',
+        brandExamples: 'Moderna or Pfizer-BioNTech',
+        fdaAgeRange: 'Moderna: ≥6 mos; Pfizer-BioNTech: ≥5 yrs',
+        category: 'routine',
+        priority: 'medium',
+        schedule: 'Unvaccinated: 1 dose updated Moderna or Pfizer-BioNTech. Previously vaccinated: 1 dose updated formula at least 8 weeks after most recent dose.',
+        rationale: 'CDC Guidance: 1 single updated dose for unvaccinated individuals aged 5–11 years, or 1 dose ≥8 weeks after prior pre-updated formula.',
+        sourceCitation: 'CDC Interim Clinical Considerations / Ages 5–11 years Routine Schedule',
+      });
+    } else if (ageInYears >= 12 && ageInYears <= 18) {
+      // Age 12 - 18 years
+      list.push({
+        id: 'covid_adol_12_18',
+        name: 'COVID-19 (Adolescents 12–18 yrs)',
+        brandExamples: 'Moderna, Pfizer-BioNTech, or Novavax',
+        fdaAgeRange: 'Moderna: ≥6 mos; Pfizer: ≥5 yrs; Novavax: ≥12 yrs',
+        category: 'routine',
+        priority: 'medium',
+        schedule: 'Unvaccinated: 1 dose updated mRNA (Moderna/Pfizer) OR 2 doses Novavax (0, 3-8 wks). Previously vaccinated: 1 dose updated formula at least 8 weeks after prior dose.',
+        rationale: 'CDC Guidance: Adolescents aged 12–18 may receive either mRNA single dose or Novavax 2-dose series if unvaccinated, or 1 updated booster dose ≥8 weeks after prior doses.',
+        sourceCitation: 'CDC Interim Clinical Considerations / Ages 12–18 years Routine Schedule',
       });
     } else if (ageInYears >= 65) {
       list.push({
@@ -317,13 +371,44 @@ export default function App() {
         fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; Novavax: ≥12 yrs',
         category: 'shared-decision',
         priority: 'medium',
-        schedule: '1 dose updated seasonal formulation via clinical consultation',
+        schedule: '1 dose updated seasonal formulation (or 2 doses Novavax at 0, 3-8 wks if unvaccinated) at least 8 weeks after prior doses',
         rationale: 'ACIP Guideline: Administered under shared clinical decision-making (SCDM). Clinical discussion considers baseline personal risk and community transmission.',
-        sourceCitation: 'HHS / ACIP Adult & Child Immunization Schedules / Shared Clinical Decision-Making Guidance',
+        sourceCitation: 'HHS / ACIP Adult Immunization Schedules / Shared Clinical Decision-Making Guidance',
       });
     }
 
-    // 3. PEDIATRIC SPECIFIC (Months & Child Schedule)
+    // ==========================================
+    // 3. INFANT PASSIVE RSV IMMUNOPROPHYLAXIS (Nirsevimab)
+    // ==========================================
+    if (ageInMonths <= 8 && !patient.history.maternalRsvReceived) {
+      list.push({
+        id: 'ped_nirsevimab',
+        name: 'RSV Monoclonal Antibody (Nirsevimab)',
+        brandExamples: 'Beyfortus (Nirsevimab-alip)',
+        fdaAgeRange: 'Neonates and infants born during or entering their first RSV season (<8 months)',
+        category: 'routine',
+        priority: 'high',
+        schedule: '1 dose IM (50 mg if <5 kg; 100 mg if ≥5 kg) prior to or during RSV season (Oct–Mar)',
+        rationale: 'CDC Child & Adolescent Schedule: Recommended for all infants aged <8 months born during or entering their first RSV season if mother did not receive maternal RSV vaccine (Abrysvo) ≥14 days prior to delivery.',
+        sourceCitation: 'CDC Child and Adolescent Immunization Schedule (RSV-mAb [Nirsevimab] Notes)',
+      });
+    } else if (ageInMonths >= 8 && ageInMonths <= 19 && (hasChronic || isImmuno)) {
+      list.push({
+        id: 'ped_nirsevimab_highrisk',
+        name: 'RSV Monoclonal Antibody (Nirsevimab - High Risk Season 2)',
+        brandExamples: 'Beyfortus (200 mg: two 100 mg injections)',
+        fdaAgeRange: 'Children 8 through 19 months at increased risk entering second RSV season',
+        category: 'risk-based',
+        priority: 'high',
+        schedule: '1 dose IM (200 mg given as two 100 mg injections) entering second RSV season',
+        rationale: 'CDC Schedule: Indicated for children 8 through 19 months with chronic lung disease of prematurity, cystic fibrosis, severe immunocompromise, or severe congenital heart disease.',
+        sourceCitation: 'CDC Child & Adolescent Schedule / RSV Prophylaxis for High-Risk Toddlers',
+      });
+    }
+
+    // ==========================================
+    // 4. PEDIATRIC SPECIFIC (Months & Child Schedule)
+    // ==========================================
     if (ageInYears < 19) {
       // Rotavirus
       if (ageInMonths <= 8) {
@@ -392,6 +477,62 @@ export default function App() {
         });
       }
 
+      // Hepatitis A (HepA - 2 Doses at 12–23 mos)
+      if (patient.history.hepaCompleted) {
+        list.push({
+          id: 'hepa_done',
+          name: 'Hepatitis A (HepA)',
+          brandExamples: 'Havrix, Vaqta',
+          fdaAgeRange: 'Approved starting at 12 months of age',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Series Completed (2 doses documented)',
+          rationale: '2-dose series provides long-lasting immunity against hepatitis A infection.',
+          sourceCitation: 'CDC Child and Adolescent Immunization Schedule',
+        });
+      } else if (ageInMonths >= 12) {
+        list.push({
+          id: 'ped_hepa',
+          name: 'Hepatitis A (HepA)',
+          brandExamples: 'Havrix, Vaqta',
+          fdaAgeRange: 'Approved starting at 12 months of age',
+          category: 'routine',
+          priority: 'high',
+          schedule: '2-dose series: Dose 1 at 12-23 months; Dose 2 administered 6 to 18 months later',
+          rationale: 'CDC Schedule: Routinely recommended for all children aged 12 through 23 months to prevent acute hepatitis A liver infection.',
+          sourceCitation: 'CDC Recommended Child and Adolescent Immunization Schedule (Table 1)',
+        });
+      }
+
+      // Human Papillomavirus (HPV) (Ages 9–18)
+      if (patient.history.hpvCompleted) {
+        list.push({
+          id: 'hpv_done',
+          name: 'Human Papillomavirus (HPV)',
+          brandExamples: 'Gardasil 9',
+          fdaAgeRange: 'Approved for females and males aged 9 through 45 years',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Series Completed (2 or 3 doses documented)',
+          rationale: 'Completed series confers lifelong protection against high-risk oncogenic HPV types (16, 18, 31, 33, 45, 52, 58) and condyloma acuminata.',
+          sourceCitation: 'CDC Child and Adolescent Immunization Schedule',
+        });
+      } else if (ageInYears >= 9 && ageInYears <= 18) {
+        list.push({
+          id: 'ped_hpv',
+          name: 'Human Papillomavirus (9-valent HPV)',
+          brandExamples: 'Gardasil 9',
+          fdaAgeRange: 'Approved for females and males aged 9 through 45 years',
+          category: 'routine',
+          priority: 'high',
+          schedule: ageInYears < 15 
+            ? '2-dose series (0, 6-12 months) if initiated prior to 15th birthday' 
+            : '3-dose series (0, 1-2, 6 months) if initiated on or after 15th birthday (or for immunocompromised)',
+          rationale: 'CDC Schedule: Routinely recommended starting at 11–12 years (can start at age 9). Highly protective against cervical, anal, penile, and oropharyngeal cancers.',
+          sourceCitation: 'CDC Recommended Child and Adolescent Immunization Schedule (Table 1: HPV Notes)',
+        });
+      }
+
       // Adolescent Tdap & MenACWY
       if (ageInYears >= 11 && ageInYears <= 12) {
         list.push({
@@ -406,9 +547,26 @@ export default function App() {
           sourceCitation: 'CDC Recommended Child and Adolescent Immunization Schedule',
         });
       }
+
+      // MenACWY 16-Year Booster
+      if (ageInYears >= 16 && ageInYears <= 18 && !isAsplenia) {
+        list.push({
+          id: 'ped_menacwy_16',
+          name: 'Meningococcal ACWY (16-Year Booster Dose)',
+          brandExamples: 'Menveo or MenQuadfi',
+          fdaAgeRange: 'Menveo: ≥2 mos; MenQuadfi: ≥2 yrs',
+          category: 'routine',
+          priority: 'high',
+          schedule: '1 booster dose administered at age 16 years (if first dose given at 11-12 years)',
+          rationale: 'CDC Schedule: Routine booster dose at age 16 provides critical protective bactericidal titers throughout high-risk late adolescent and college dorm years.',
+          sourceCitation: 'CDC Child and Adolescent Immunization Schedule (Table 1)',
+        });
+      }
     }
 
-    // 4. TDAP / TD (Adults ≥ 19 or Pregnant)
+    // ==========================================
+    // 5. TDAP / TD (Adults ≥ 19 or Pregnant)
+    // ==========================================
     if (ageInYears >= 19 || patient.isPregnant) {
       if (patient.isPregnant) {
         list.push({
@@ -449,7 +607,9 @@ export default function App() {
       }
     }
 
-    // 5. SHINGLES (RZV)
+    // ==========================================
+    // 6. SHINGLES (RZV)
+    // ==========================================
     if (patient.history.shingrixCompleted) {
       list.push({
         id: 'shingrix_done',
@@ -490,7 +650,9 @@ export default function App() {
       });
     }
 
-    // 6. PNEUMOCOCCAL
+    // ==========================================
+    // 7. PNEUMOCOCCAL (PCV15 / PCV20 / PCV21)
+    // ==========================================
     if (patient.history.priorPneumococcal === 'pcv20') {
       list.push({
         id: 'pneumo_completed',
@@ -539,7 +701,7 @@ export default function App() {
         priority: 'high',
         schedule: '4-dose series given at 2, 4, 6, and 12-15 months of age',
         rationale: 'Routinely prevents invasive pneumococcal disease (meningitis, bacteremia) and otitis media in infants.',
-        sourceCitation: 'CDC ACIP Infant Pneumococcal Conjugate Immunization Schedule',
+        sourceCitation: 'CDC Child and Adolescent Immunization Schedule (Table 1: PCV15, PCV20)',
       });
     } else if (ageInYears >= 50) {
       list.push({
@@ -569,7 +731,9 @@ export default function App() {
       });
     }
 
-    // 7. ASPLENIA ENCAPSULATED ORGANISM COVERAGE
+    // ==========================================
+    // 8. ASPLENIA ENCAPSULATED ORGANISM COVERAGE
+    // ==========================================
     // MenACWY
     if (isAsplenia || hasSetting('college_dorm') || hasSetting('travel')) {
       if (patient.history.menAcwyCompleted && !isAsplenia) {
@@ -656,7 +820,7 @@ export default function App() {
           priority: 'high',
           schedule: 'Primary series at 2, 4, (6) months, plus booster dose at 12-15 months',
           rationale: 'Universal routine infant recommendation preventing epiglottitis and bacteremic meningitis.',
-          sourceCitation: 'CDC ACIP Recommended Child and Adolescent Schedule',
+          sourceCitation: 'CDC Child and Adolescent Immunization Schedule (Table 1: Hib)',
         });
       } else if (isAsplenia) {
         list.push({
@@ -673,7 +837,9 @@ export default function App() {
       }
     }
 
-    // 8. RSV
+    // ==========================================
+    // 9. ADULT & MATERNAL RSV
+    // ==========================================
     if (ageInYears >= 75) {
       list.push({
         id: 'rsv_75',
@@ -712,7 +878,9 @@ export default function App() {
       });
     }
 
-    // 9. HEPATITIS B
+    // ==========================================
+    // 10. HEPATITIS B
+    // ==========================================
     if (patient.history.hepbCompleted) {
       list.push({
         id: 'hepb_done',
@@ -747,7 +915,7 @@ export default function App() {
         priority: 'high',
         schedule: 'Monovalent birth dose within 24 hours of life; followed by doses at 1-2 and 6-18 months (total 3-4 doses)',
         rationale: 'Universal routine infant immunization starting within 24 hours of birth prevents vertical perinatal and early childhood transmission.',
-        sourceCitation: 'CDC ACIP Infant Hepatitis B Immunization Schedule',
+        sourceCitation: 'CDC Child and Adolescent Immunization Schedule (Table 1: HepB)',
       });
     } else if (ageInYears >= 1 && ageInYears <= 59) {
       list.push({
@@ -777,7 +945,9 @@ export default function App() {
       });
     }
 
-    // 10. LIVE VACCINES (MMR & VARICELLA)
+    // ==========================================
+    // 11. LIVE VACCINES (MMR & VARICELLA)
+    // ==========================================
     if (patient.isPregnant || isImmuno) {
       const contraReason = patient.isPregnant && isImmuno
         ? 'Active Pregnancy AND Severe Immunocompromise / T-cell deficiency'
@@ -787,7 +957,7 @@ export default function App() {
 
       list.push({
         id: 'contra_live',
-        name: 'Live Viral Vaccines (MMR, Varicella, LAIV Flu)',
+        name: 'Live Viral Vaccines (MMR, Varicella, LAIV3 Flu)',
         brandExamples: 'M-M-R II, Priorix, Varivax, FluMist',
         fdaAgeRange: 'MMR/Priorix: ≥12 mos; Varivax: ≥12 mos; FluMist: 2 through 49 yrs',
         category: 'contraindicated',
@@ -805,10 +975,10 @@ export default function App() {
         fdaAgeRange: 'Routine approval starting at ≥12 months of age',
         category: 'deferred',
         priority: 'informational',
-        schedule: 'Dose 1 indicated at 12 through 15 months of age',
+        schedule: 'Dose 1 indicated at 12 through 15 months of age; Dose 2 at 4 through 6 years',
         rationale: 'Circulating maternal transplacental IgG antibodies neutralize live viral replication before 12 months, reducing seroconversion. (Off-label dose at 6-11 months given only for immediate international travel, but must still be repeated at ≥12 months).',
         contraindications: 'Age-Based Restriction: Routine start at 12–15 months (Maternal antibody interference)',
-        sourceCitation: 'CDC ACIP Child and Adolescent Immunization Schedule',
+        sourceCitation: 'CDC Child and Adolescent Immunization Schedule (Table 1: MMR & VAR)',
       });
     } else if (ageInYears < 50) {
       list.push({
@@ -870,10 +1040,13 @@ PATIENT CLINICAL SUMMARY:
 PRIOR DOCUMENTED DOSES:
 - Flu (Current Season): ${patient.history.fluThisSeason ? 'Yes' : 'No'}
 - Recent COVID-19 Formula: ${patient.history.covidRecent ? 'Yes' : 'No'}
+- Maternal RSV (Abrysvo during pregnancy): ${patient.history.maternalRsvReceived ? 'Yes' : 'No'}
+- Polio (IPV): ${patient.history.ipvCompleted ? 'Completed' : 'Incomplete/None'}
+- Hepatitis A (HepA): ${patient.history.hepaCompleted ? 'Completed' : 'Incomplete/None'}
+- HPV Series: ${patient.history.hpvCompleted ? 'Completed' : 'Incomplete/None'}
 - Tdap within 10 years: ${patient.history.tdapWithin10Yrs ? 'Yes' : 'No'}
 - Shingrix 2-Dose Series: ${patient.history.shingrixCompleted ? 'Completed' : 'Incomplete/None'}
 - Prior Pneumococcal: ${patient.history.priorPneumococcal.toUpperCase()}
-- Prior Polio (IPV): ${patient.history.ipvCompleted ? 'Completed' : 'Incomplete/None'}
 - Prior Hib: ${patient.history.hibReceived ? 'Documented' : 'None/Unknown'}
 - Prior MenACWY: ${patient.history.menAcwyCompleted ? 'Documented' : 'None/Unknown'}
 - Prior MenB: ${patient.history.menBCompleted ? 'Documented' : 'None/Unknown'}
@@ -890,7 +1063,7 @@ ${deferred.length > 0 ? deferred.map(r => `• ${r.name}\n  - Status: ${r.contra
 CONTRAINDICATIONS / SAFETY FLAGS:
 ${contra.length > 0 ? contra.map(r => `• CRITICAL: ${r.name}\n  - Reason: ${r.contraindications}\n  - Clinical Rationale: ${r.rationale}`).join('\n') : '• No active contraindications flagged'}
 
-Assessed per CDC / ACIP Clinical Guidelines.`;
+Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
   }, [patient, recommendations, patientAgeDisplay]);
 
   const copyToClipboard = () => {
@@ -913,7 +1086,7 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            Automated clinical decision engine with newborn/pediatric month intervals, IPV polio schedules, & ACIP shared decision-making.
+            CDC Child, Adolescent, & Adult Immunization Engine featuring pediatric RSV-mAb (Nirsevimab), HepA, HPV, & stratified COVID-19 rules.
           </p>
         </div>
         
@@ -1150,6 +1323,16 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={patient.history.maternalRsvReceived}
+                    onChange={(e) => updateHistory('maternalRsvReceived', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Mother Received Maternal RSV Vaccine (Abrysvo) during pregnancy</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
                     checked={patient.history.fluThisSeason}
                     onChange={(e) => updateHistory('fluThisSeason', e.target.checked)}
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
@@ -1175,6 +1358,26 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                   />
                   <span>Completed Inactivated Polio (IPV) 4-Dose Series</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.hepaCompleted}
+                    onChange={(e) => updateHistory('hepaCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Completed Hepatitis A (HepA) 2-Dose Series</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.hpvCompleted}
+                    onChange={(e) => updateHistory('hpvCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Completed Human Papillomavirus (HPV) Series</span>
                 </label>
 
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
@@ -1448,14 +1651,11 @@ Assessed per CDC / ACIP Clinical Guidelines.`;
             
             <div className="text-xs space-y-3 text-slate-700 leading-relaxed">
               <p>
-                <strong>General Rule for Inactivated Vaccines:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Tdap, IPV, MenACWY, MenB, Hib) can be co-administered simultaneously at separate anatomical injection sites.
+                <strong>General Rule for Inactivated Vaccines & Monoclonal Antibodies:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Hepatitis A, Tdap, IPV, MenACWY, MenB, Hib) and Nirsevimab (RSV-mAb) can be co-administered simultaneously at separate anatomical injection sites.
               </p>
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
-                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
+                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever, LAIV3):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
               </div>
-              <p>
-                <strong>Asplenia MenACWY / PCV Spacing:</strong> If Menactra (an older MenACWY-D conjugate) is used, administer PCV first and separate from Menactra by $\ge 4$ weeks to prevent interference. (Not applicable to Menveo or MenQuadfi).
-              </p>
               <p>
                 <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent) or $\ge 8$ weeks later (immunocompromised or asplenia). Never administer PCV15 and PPSV23 together at the same visit.
               </p>
