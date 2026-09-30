@@ -273,25 +273,25 @@ export default function App() {
     }
 
     // ==========================================
-    // 2. COVID-19 (Updated Formula & Age Rules)
+    // 2. COVID-19 (Updated Formula & Brand Names)
     // ==========================================
     if (patient.history.covidRecent) {
       list.push({
         id: 'covid_done',
         name: 'COVID-19 (Updated Formulation)',
-        brandExamples: 'Moderna, Pfizer-BioNTech, Novavax',
-        fdaAgeRange: 'Moderna: ≥6 mos; Pfizer-BioNTech: ≥6 mos; Novavax: ≥12 yrs',
+        brandExamples: 'Spikevax, mNEXSPIKE, Comirnaty, or Nuvaxovid',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; mNEXSPIKE: ≥12 yrs; Nuvaxovid: ≥12 yrs',
         category: 'completed',
         priority: 'informational',
         schedule: 'Up to date for current seasonal cycle',
         rationale: 'Patient reports recent receipt of the updated seasonal formulation.',
-        sourceCitation: 'CDC Guidance for COVID-19 Vaccination by Age & History',
+        sourceCitation: 'CDC Overview of COVID-19 Vaccines and Vaccination',
       });
     } else if (ageInMonths < 6) {
       list.push({
         id: 'covid_too_young',
         name: 'COVID-19 Formulation',
-        brandExamples: 'Moderna, Pfizer-BioNTech',
+        brandExamples: 'Spikevax (Moderna)',
         fdaAgeRange: 'Approved starting at ≥6 months of age',
         category: 'deferred',
         priority: 'informational',
@@ -303,48 +303,48 @@ export default function App() {
     } else if (ageInYears < 5) {
       list.push({
         id: 'covid_infant_toddler',
-        name: 'COVID-19 (Pediatric 6 mos–4 yrs)',
-        brandExamples: 'Moderna (2-dose initial) OR Pfizer-BioNTech (3-dose initial)',
-        fdaAgeRange: 'Moderna: 6 mos–11 yrs; Pfizer-BioNTech: 6 mos–4 yrs',
+        name: 'COVID-19 (Pediatric 6 mos–4 yrs: Spikevax)',
+        brandExamples: 'Spikevax (Moderna mRNA) - Sole approved vaccine for 6 mos–4 yrs',
+        fdaAgeRange: 'Spikevax: 6 months through 11 years (Pfizer Comirnaty no longer authorized <5 yrs)',
         category: 'routine',
         priority: 'high',
-        schedule: 'Unvaccinated: 2 doses Moderna (0, 4-8 wks) OR 3 doses Pfizer-BioNTech (0, 3-8 wks, and ≥8 wks after dose 2). All doses must be from same manufacturer.',
-        rationale: 'CDC Guidance: For children 6 months–4 years, complete initial series using the same manufacturer. If previously received an incomplete series, complete with updated formulation.',
-        sourceCitation: 'CDC Interim Clinical Considerations / Routine Vaccination for Ages 6 mos–4 yrs',
+        schedule: 'Unvaccinated: 2 doses Spikevax (0, 4-8 weeks). Incomplete series: complete with 1 dose updated Spikevax 4-8 weeks after prior dose.',
+        rationale: 'CDC Guidance: Spikevax (Moderna) is the only FDA-approved COVID-19 vaccine available for children aged 6 months through 4 years. Unvaccinated children receive a 2-dose primary series.',
+        sourceCitation: 'CDC Interim Clinical Considerations / Overview of COVID-19 Vaccines (Ages 6 mos–4 yrs)',
       });
     } else if (ageInYears >= 5 && ageInYears < 12) {
       list.push({
         id: 'covid_pediatric_5_11',
         name: 'COVID-19 (Children 5–11 yrs)',
-        brandExamples: 'Moderna or Pfizer-BioNTech',
-        fdaAgeRange: 'Moderna: ≥6 mos; Pfizer-BioNTech: ≥5 yrs',
+        brandExamples: 'Spikevax (Moderna) or Comirnaty (Pfizer-BioNTech)',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs',
         category: 'routine',
         priority: 'medium',
-        schedule: 'Unvaccinated: 1 dose updated Moderna or Pfizer-BioNTech. Previously vaccinated: 1 dose updated formula at least 8 weeks after most recent dose.',
-        rationale: 'CDC Guidance: 1 single updated dose for unvaccinated individuals aged 5–11 years, or 1 dose ≥8 weeks after prior dose.',
+        schedule: 'Unvaccinated: 1 dose updated Spikevax or Comirnaty. Previously vaccinated: 1 dose updated formula at least 8 weeks after prior dose.',
+        rationale: 'CDC Guidance: 1 single updated dose for unvaccinated individuals aged 5–11 years, or 1 dose ≥8 weeks after prior vaccination.',
         sourceCitation: 'CDC Interim Clinical Considerations / Ages 5–11 years Routine Schedule',
       });
     } else if (ageInYears >= 12 && ageInYears <= 18) {
       list.push({
         id: 'covid_adol_12_18',
         name: 'COVID-19 (Adolescents 12–18 yrs)',
-        brandExamples: 'Moderna, Pfizer-BioNTech, or Novavax',
-        fdaAgeRange: 'Moderna: ≥6 mos; Pfizer: ≥5 yrs; Novavax: ≥12 yrs',
+        brandExamples: 'Spikevax, mNEXSPIKE (Moderna), Comirnaty (Pfizer), or Nuvaxovid (Novavax)',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; mNEXSPIKE: ≥12 yrs; Nuvaxovid: ≥12 yrs',
         category: 'routine',
         priority: 'medium',
-        schedule: 'Unvaccinated: 1 dose updated mRNA (Moderna/Pfizer) OR 2 doses Novavax (0, 3-8 wks). Previously vaccinated: 1 dose updated formula at least 8 weeks after prior dose.',
-        rationale: 'CDC Guidance: Adolescents aged 12–18 may receive either mRNA single dose or Novavax 2-dose series if unvaccinated, or 1 updated booster dose ≥8 weeks after prior doses.',
-        sourceCitation: 'CDC Interim Clinical Considerations / Ages 12–18 years Routine Schedule',
+        schedule: 'Unvaccinated: 1 dose updated mRNA (Spikevax/mNEXSPIKE/Comirnaty) OR 2 doses Nuvaxovid (0, 3-8 wks). Previously vaccinated: 1 dose updated formula ≥8 weeks after prior dose.',
+        rationale: 'CDC Guidance: Adolescents aged 12–18 may receive either an mRNA single dose or Nuvaxovid 2-dose series if unvaccinated, or 1 updated booster dose ≥8 weeks after prior doses.',
+        sourceCitation: 'CDC Interim Clinical Considerations / Overview of COVID-19 Vaccines (Ages 12–18 yrs)',
       });
     } else if (ageInYears >= 65) {
       list.push({
         id: 'covid_senior',
         name: 'COVID-19 (Updated Formulation)',
-        brandExamples: 'Spikevax (Moderna), Comirnaty (Pfizer), Novavax',
-        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; Novavax: ≥12 yrs',
+        brandExamples: 'Spikevax, mNEXSPIKE, Comirnaty, or Nuvaxovid',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; mNEXSPIKE: ≥12 yrs; Nuvaxovid: ≥12 yrs',
         category: 'shared-decision',
         priority: 'high',
-        schedule: '1 dose updated seasonal formulation; optional additional dose 6 months later based on SCDM',
+        schedule: '1 dose updated seasonal formulation; optional additional booster dose 6 months later based on SCDM',
         rationale: 'ACIP Guideline: Recommended based on individual-based / shared clinical decision-making (SCDM). Risk-benefit is highly favorable in older adults due to elevated hospitalization risk.',
         sourceCitation: 'CDC ACIP Recommendations for Individual Decision-Making for COVID-19 Vaccination',
       });
@@ -352,11 +352,11 @@ export default function App() {
       list.push({
         id: 'covid_risk',
         name: 'COVID-19 (Updated Formulation)',
-        brandExamples: 'Spikevax, Comirnaty, Novavax',
-        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; Novavax: ≥12 yrs',
+        brandExamples: 'Spikevax, mNEXSPIKE, Comirnaty, or Nuvaxovid',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; mNEXSPIKE: ≥12 yrs; Nuvaxovid: ≥12 yrs',
         category: 'shared-decision',
         priority: 'high',
-        schedule: isImmuno ? '1 dose updated formulation + eligible for additional dose ≥2 months later' : '1 dose updated seasonal formulation',
+        schedule: isImmuno ? '1 dose updated formulation + eligible for additional booster ≥2 months later' : '1 dose updated seasonal formulation',
         rationale: 'ACIP Guideline: Shared Clinical Decision-Making (SCDM) for individuals <65 years. The risk-benefit ratio is most favorable for individuals with chronic conditions, immunocompromise, asplenia, or pregnancy.',
         sourceCitation: 'CDC MMWR / ACIP Update: Guidance for COVID-19 Immunization via Individual Decision-Making',
       });
@@ -364,11 +364,11 @@ export default function App() {
       list.push({
         id: 'covid_healthy',
         name: 'COVID-19 (Updated Formulation)',
-        brandExamples: 'Spikevax, Comirnaty, Novavax',
-        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; Novavax: ≥12 yrs',
+        brandExamples: 'Spikevax, mNEXSPIKE, Comirnaty, or Nuvaxovid',
+        fdaAgeRange: 'Spikevax: ≥6 mos; Comirnaty: ≥5 yrs; mNEXSPIKE: ≥12 yrs; Nuvaxovid: ≥12 yrs',
         category: 'shared-decision',
         priority: 'medium',
-        schedule: '1 dose updated seasonal formulation (or 2 doses Novavax at 0, 3-8 wks if unvaccinated) at least 8 weeks after prior doses',
+        schedule: '1 dose updated mRNA (or 2 doses Nuvaxovid at 0, 3-8 wks if unvaccinated) at least 8 weeks after prior doses',
         rationale: 'ACIP Guideline: Administered under shared clinical decision-making (SCDM). Clinical discussion considers baseline personal risk and community transmission.',
         sourceCitation: 'HHS / ACIP Adult Immunization Schedules / Shared Clinical Decision-Making Guidance',
       });
@@ -1083,7 +1083,7 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            CDC Child, Adolescent, & Adult Immunization Engine featuring pediatric RSV-mAb (Nirsevimab), HepA, HPV, & stratified COVID-19 rules.
+            CDC Child, Adolescent, & Adult Immunization Engine featuring pediatric RSV-mAb (Nirsevimab), HepA, HPV, & updated COVID-19 formulations.
           </p>
         </div>
         
