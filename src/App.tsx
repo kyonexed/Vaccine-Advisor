@@ -225,7 +225,7 @@ export default function App() {
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
     // ==========================================
-    // 1. INFLUENZA (Trivalent IIV3 / ccIIV3 / LAIV3)
+    // 1. INFLUENZA (Trivalent IIV3 / ccIIV3 / RIV3 / LAIV3)
     // ==========================================
     if (patient.history.fluThisSeason) {
       list.push({
@@ -243,19 +243,19 @@ export default function App() {
       list.push({
         id: 'flu_too_young',
         name: 'Influenza (Seasonal Flu)',
-        brandExamples: 'Standard IIV3 / ccIIV3',
+        brandExamples: 'Standard Trivalent IIV3 / ccIIV3',
         fdaAgeRange: 'Approved for age ≥6 months only',
         category: 'deferred',
         priority: 'informational',
         schedule: 'INDICATED STARTING AT 6 MONTHS OF AGE',
-        rationale: 'Infants <6 months are too young to receive influenza vaccines. Protection relies on maternal immunization during pregnancy and cocooning.',
+        rationale: 'Infants <6 months are too young to receive influenza vaccines. Protection relies on maternal immunization during pregnancy and caregiver cocooning.',
         contraindications: 'Age < 6 months (FDA boundary)',
         sourceCitation: 'CDC ACIP Seasonal Influenza Schedule / FDA Prescribing Information',
       });
     } else {
       list.push({
         id: 'flu',
-        name: 'Influenza (Seasonal Flu - Trivalent IIV3 / ccIIV3)',
+        name: 'Influenza (Seasonal Flu - Trivalent IIV3 / ccIIV3 / RIV3)',
         brandExamples: ageInYears >= 65 ? 'Fluzone High-Dose, Fluad, or Flublok (Preferred)' : 'Standard IIV3 or ccIIV3 (Inactivated only in pregnancy)',
         fdaAgeRange: ageInYears >= 65 ? 'High-dose/Adjuvanted: ≥65 years' : 'Standard IIV3: ≥6 months; LAIV3: 2 through 49 years',
         category: 'routine',
@@ -301,7 +301,6 @@ export default function App() {
         sourceCitation: 'CDC Child & Adolescent Immunization Schedule',
       });
     } else if (ageInYears < 5) {
-      // Age 6 months - 4 years
       list.push({
         id: 'covid_infant_toddler',
         name: 'COVID-19 (Pediatric 6 mos–4 yrs)',
@@ -309,12 +308,11 @@ export default function App() {
         fdaAgeRange: 'Moderna: 6 mos–11 yrs; Pfizer-BioNTech: 6 mos–4 yrs',
         category: 'routine',
         priority: 'high',
-        schedule: 'Unvaccinated: 2 doses Moderna (0, 4-8 wks) OR 3 doses Pfizer-BioNTech (0, 3-8 wks, and ≥8 wks after dose 2). All doses should be from same manufacturer.',
-        rationale: 'CDC Guidance: For children 6 months–4 years, complete multi-dose initial series using the same manufacturer. If previously received incomplete series, complete with 1-2 updated doses.',
+        schedule: 'Unvaccinated: 2 doses Moderna (0, 4-8 wks) OR 3 doses Pfizer-BioNTech (0, 3-8 wks, and ≥8 wks after dose 2). All doses must be from same manufacturer.',
+        rationale: 'CDC Guidance: For children 6 months–4 years, complete initial series using the same manufacturer. If previously received an incomplete series, complete with updated formulation.',
         sourceCitation: 'CDC Interim Clinical Considerations / Routine Vaccination for Ages 6 mos–4 yrs',
       });
     } else if (ageInYears >= 5 && ageInYears < 12) {
-      // Age 5 - 11 years
       list.push({
         id: 'covid_pediatric_5_11',
         name: 'COVID-19 (Children 5–11 yrs)',
@@ -323,11 +321,10 @@ export default function App() {
         category: 'routine',
         priority: 'medium',
         schedule: 'Unvaccinated: 1 dose updated Moderna or Pfizer-BioNTech. Previously vaccinated: 1 dose updated formula at least 8 weeks after most recent dose.',
-        rationale: 'CDC Guidance: 1 single updated dose for unvaccinated individuals aged 5–11 years, or 1 dose ≥8 weeks after prior pre-updated formula.',
+        rationale: 'CDC Guidance: 1 single updated dose for unvaccinated individuals aged 5–11 years, or 1 dose ≥8 weeks after prior dose.',
         sourceCitation: 'CDC Interim Clinical Considerations / Ages 5–11 years Routine Schedule',
       });
     } else if (ageInYears >= 12 && ageInYears <= 18) {
-      // Age 12 - 18 years
       list.push({
         id: 'covid_adol_12_18',
         name: 'COVID-19 (Adolescents 12–18 yrs)',
@@ -608,7 +605,7 @@ export default function App() {
     }
 
     // ==========================================
-    // 6. SHINGLES (RZV)
+    // 6. SHINGLES (RZV - Recombinant Zoster)
     // ==========================================
     if (patient.history.shingrixCompleted) {
       list.push({
@@ -644,7 +641,7 @@ export default function App() {
         priority: 'high',
         schedule: '2-dose intramuscular series (0, 2-6 months; 0, 1-2 months if immunocompromised)',
         rationale: ageInYears >= 50
-          ? 'Routinely recommended for all immunocompetent adults ≥50 years regardless of prior zoster disease or Zostavax.'
+          ? 'Routinely recommended for all immunocompetent adults ≥50 years to prevent Herpes Zoster and postherpetic neuralgia.'
           : 'Indicated for adults 19-49 who are or will be immunodeficient or immunosuppressed due to disease or therapy.',
         sourceCitation: 'CDC ACIP MMWR Recommendations for Use of Recombinant Zoster Vaccine',
       });
@@ -879,7 +876,7 @@ export default function App() {
     }
 
     // ==========================================
-    // 10. HEPATITIS B
+    // 10. HEPATITIS B (Current Active Formulations)
     // ==========================================
     if (patient.history.hepbCompleted) {
       list.push({
@@ -901,8 +898,8 @@ export default function App() {
         fdaAgeRange: 'Engerix-B / Recombivax HB: Approved across all ages including pregnancy',
         category: 'risk-based',
         priority: 'high',
-        schedule: '3-dose series (0, 1, 6 months) using standard single-antigen vaccine. DO NOT USE Heplisav-B or PreHevbrio.',
-        rationale: 'Indicated during pregnancy for patients with occupational exposure, diabetes, ESRD, or chronic liver risk. ACIP explicitly advises using standard alum-adjuvanted vaccines (Engerix-B/Recombivax HB).',
+        schedule: '3-dose series (0, 1, 6 months) using standard single-antigen vaccine. DO NOT USE Heplisav-B in pregnancy.',
+        rationale: 'Indicated during pregnancy for patients with occupational exposure, diabetes, ESRD, or chronic liver risk. ACIP explicitly advises using standard alum-adjuvanted vaccines (Engerix-B/Recombivax HB) due to extensive pregnancy safety data.',
         sourceCitation: 'CDC ACIP Recommendations for Hepatitis B Vaccination During Pregnancy / MMWR Guidelines',
       });
     } else if (ageInYears < 1) {
@@ -922,7 +919,7 @@ export default function App() {
         id: 'hepb_routine',
         name: 'Hepatitis B Recombinant',
         brandExamples: 'Heplisav-B (2-dose), Engerix-B / Recombivax HB (3-dose)',
-        fdaAgeRange: 'Heplisav-B: ≥18 yrs; PreHevbrio: ≥18 yrs; Engerix-B: all ages',
+        fdaAgeRange: 'Heplisav-B: ≥18 yrs; Engerix-B: all ages',
         category: 'routine',
         priority: 'medium',
         schedule: ageInYears >= 18 
