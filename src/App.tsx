@@ -117,7 +117,6 @@ export default function App() {
       : Math.round(patient.ageValue * 12);
   }, [patient.ageValue, patient.ageUnit]);
 
-  // Filter conditions and settings based on current age
   const visibleConditions = useMemo(() => {
     return ALL_CONDITIONS_LIST.filter(cond => ageInYears >= cond.minAgeYears);
   }, [ageInYears]);
@@ -126,7 +125,6 @@ export default function App() {
     return ALL_SETTINGS_LIST.filter(setting => ageInYears >= setting.minAgeYears);
   }, [ageInYears]);
 
-  // Clean up invalid selections if age is dialed down
   const cleanProfileForAge = (newAgeYears: number, currentProfile: PatientProfile): PatientProfile => {
     const validCondIds = ALL_CONDITIONS_LIST.filter(c => newAgeYears >= c.minAgeYears).map(c => c.id);
     const validSettingIds = ALL_SETTINGS_LIST.filter(s => newAgeYears >= s.minAgeYears).map(s => s.id);
@@ -212,7 +210,6 @@ export default function App() {
     }
   };
 
-  // Comprehensive ACIP Evaluation Engine
   const recommendations: VaccineRecommendation[] = useMemo(() => {
     const list: VaccineRecommendation[] = [];
     const hasCondition = (id: string) => patient.conditions.includes(id);
@@ -221,7 +218,7 @@ export default function App() {
     const isAsplenia = hasCondition('asplenia');
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
-    // 1. INFLUENZA (Trivalent IIV3 / ccIIV3 / RIV3 / LAIV3)
+    // 1. INFLUENZA
     if (patient.history.fluThisSeason) {
       list.push({
         id: 'flu_done',
@@ -367,7 +364,7 @@ export default function App() {
       });
     }
 
-    // 3. INFANT PASSIVE RSV IMMUNOPROPHYLAXIS (Nirsevimab)
+    // 3. INFANT PASSIVE RSV (Nirsevimab)
     if (ageInMonths <= 8 && !patient.history.maternalRsvReceived) {
       list.push({
         id: 'ped_nirsevimab',
@@ -396,7 +393,6 @@ export default function App() {
 
     // 4. PEDIATRIC SPECIFIC (Months & Child Schedule)
     if (ageInYears < 19) {
-      // Rotavirus
       if (ageInMonths <= 8) {
         list.push({
           id: 'ped_rotavirus',
@@ -413,7 +409,6 @@ export default function App() {
         });
       }
 
-      // DTaP (<7 years)
       if (ageInYears < 7) {
         list.push({
           id: 'ped_dtap',
@@ -432,7 +427,6 @@ export default function App() {
         });
       }
 
-      // Inactivated Poliovirus (IPV)
       if (patient.history.ipvCompleted) {
         list.push({
           id: 'ipv_done',
@@ -463,7 +457,6 @@ export default function App() {
         });
       }
 
-      // Hepatitis A (HepA - 2 Doses at 12–23 mos)
       if (patient.history.hepaCompleted) {
         list.push({
           id: 'hepa_done',
@@ -490,7 +483,6 @@ export default function App() {
         });
       }
 
-      // Human Papillomavirus (HPV) (Ages 9–18)
       if (patient.history.hpvCompleted) {
         list.push({
           id: 'hpv_done',
@@ -519,7 +511,6 @@ export default function App() {
         });
       }
 
-      // Adolescent Tdap & MenACWY
       if (ageInYears >= 11 && ageInYears <= 12) {
         list.push({
           id: 'ped_adolescent_booster',
@@ -534,7 +525,6 @@ export default function App() {
         });
       }
 
-      // MenACWY 16-Year Booster
       if (ageInYears >= 16 && ageInYears <= 18 && !isAsplenia) {
         list.push({
           id: 'ped_menacwy_16',
@@ -712,7 +702,6 @@ export default function App() {
     }
 
     // 8. ASPLENIA ENCAPSULATED ORGANISM COVERAGE
-    // MenACWY
     if (isAsplenia || hasSetting('college_dorm') || hasSetting('travel')) {
       if (patient.history.menAcwyCompleted && !isAsplenia) {
         list.push({
@@ -745,7 +734,6 @@ export default function App() {
       }
     }
 
-    // MenB
     if (isAsplenia && ageInYears >= 10) {
       if (patient.history.menBCompleted) {
         list.push({
@@ -774,7 +762,6 @@ export default function App() {
       }
     }
 
-    // Hib
     if (isAsplenia || ageInYears < 5) {
       if (patient.history.hibReceived && isAsplenia) {
         list.push({
@@ -1278,7 +1265,6 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                   Check off documented previous doses to automatically adjust intervals and suppress redundant booster recommendations.
                 </p>
 
-                {/* Maternal RSV Flag (relevant for infants <= 8 months) */}
                 {ageInMonths <= 8 && (
                   <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                     <input
@@ -1560,25 +1546,21 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                       </div>
                     </div>
 
-                    {/* FDA Approved Age Range Badge */}
                     <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-mono">
                       <span className="font-bold text-slate-900">FDA Age Approval:</span>
                       {rec.fdaAgeRange}
                     </div>
 
-                    {/* Schedule / Timing */}
                     <div className="mt-2.5 bg-white/80 p-2.5 rounded-lg border border-slate-100 text-xs text-slate-700 leading-relaxed">
                       <span className="font-semibold text-slate-900">Dosing & Administration: </span>
                       {rec.schedule}
                     </div>
 
-                    {/* Clinical Rationale */}
                     <div className="mt-2 text-xs text-slate-600 flex items-start gap-1.5 leading-relaxed">
                       <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                       <span>{rec.rationale}</span>
                     </div>
 
-                    {/* Safety flag or timing delay detail */}
                     {rec.contraindications && (
                       <div className={`mt-2 text-xs font-semibold flex items-center gap-1.5 p-2 rounded-md ${
                         isContra ? 'bg-rose-100/70 text-rose-700' : 'bg-sky-100/70 text-sky-800'
@@ -1588,7 +1570,6 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                       </div>
                     )}
 
-                    {/* Official Guideline Citation */}
                     <div className="mt-2.5 pt-2 border-t border-slate-100/80 flex items-center gap-1.5 text-[10px] text-slate-500 italic">
                       <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{rec.sourceCitation}</span>
