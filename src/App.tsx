@@ -19,13 +19,15 @@ import {
   ChevronDown, 
   ChevronUp, 
   BookOpen, 
-  Clock 
+  Clock,
+  FlaskConical
 } from 'lucide-react';
 
 interface PriorDoseState {
   fluThisSeason: boolean;
   covidRecent: boolean;
   tdapWithin10Yrs: boolean;
+  dtapPedCompleted: boolean;
   shingrixCompleted: boolean;
   priorPneumococcal: 'none' | 'pcv15' | 'pcv20' | 'ppsv23_only';
   hepbCompleted: boolean;
@@ -35,6 +37,9 @@ interface PriorDoseState {
   menBCompleted: boolean;
   ipvCompleted: boolean;
   hpvCompleted: boolean;
+  rotavirusCompleted: boolean;
+  mmrCompleted: boolean;
+  varicellaCompleted: boolean;
   maternalRsvReceived: boolean;
 }
 
@@ -114,6 +119,7 @@ export default function App() {
       fluThisSeason: false,
       covidRecent: false,
       tdapWithin10Yrs: false,
+      dtapPedCompleted: false,
       shingrixCompleted: false,
       priorPneumococcal: 'none',
       hepbCompleted: false,
@@ -123,6 +129,9 @@ export default function App() {
       menBCompleted: false,
       ipvCompleted: false,
       hpvCompleted: false,
+      rotavirusCompleted: false,
+      mmrCompleted: false,
+      varicellaCompleted: false,
       maternalRsvReceived: false,
     }
   });
@@ -212,6 +221,7 @@ export default function App() {
         fluThisSeason: false,
         covidRecent: false,
         tdapWithin10Yrs: false,
+        dtapPedCompleted: false,
         shingrixCompleted: false,
         priorPneumococcal: 'none',
         hepbCompleted: false,
@@ -221,6 +231,9 @@ export default function App() {
         menBCompleted: false,
         ipvCompleted: false,
         hpvCompleted: false,
+        rotavirusCompleted: false,
+        mmrCompleted: false,
+        varicellaCompleted: false,
         maternalRsvReceived: false,
       }
     });
@@ -425,9 +438,22 @@ export default function App() {
       });
     }
 
-    // 4. PEDIATRIC SPECIFIC
+    // 4. PEDIATRIC SPECIFIC (Months & Child Schedule)
     if (ageInYears < 19) {
-      if (ageInMonths <= 8) {
+      // Rotavirus
+      if (patient.history.rotavirusCompleted) {
+        list.push({
+          id: 'ped_rotavirus_done',
+          name: 'Rotavirus (RV1 / RV5)',
+          brandExamples: 'Rotarix, RotaTeq',
+          fdaAgeRange: 'Infants up to 8 months 0 days',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Completed 2- or 3-dose oral series',
+          rationale: 'Documented completion of rotavirus infant oral immunizations.',
+          sourceCitation: 'CDC Child and Adolescent Immunization Schedule',
+        });
+      } else if (ageInMonths <= 8) {
         list.push({
           id: 'ped_rotavirus',
           name: 'Rotavirus (RV1 / RV5)',
@@ -443,24 +469,40 @@ export default function App() {
         });
       }
 
+      // DTaP (<7 years)
       if (ageInYears < 7) {
-        list.push({
-          id: 'ped_dtap',
-          name: 'DTaP (Diphtheria, Tetanus, acellular Pertussis)',
-          brandExamples: 'Infanrix, Daptacel',
-          fdaAgeRange: '6 weeks through 6 years (up to 7th birthday)',
-          category: 'routine',
-          priority: 'high',
-          schedule: ageInMonths < 2 
-            ? 'First dose at 2 months of age'
-            : ageInMonths < 15 
-            ? 'Primary series at 2, 4, and 6 months'
-            : 'Booster doses at 15-18 months and 4-6 years of age',
-          rationale: 'Standard pediatric active immunization against tetanus, diphtheria, and pertussis before age 7.',
-          sourceCitation: 'CDC ACIP DTaP Schedule / FDA Package Insert (Infanrix)',
-        });
+        if (patient.history.dtapPedCompleted) {
+          list.push({
+            id: 'ped_dtap_done',
+            name: 'DTaP (Pediatric Series)',
+            brandExamples: 'Infanrix, Daptacel',
+            fdaAgeRange: '6 weeks through 6 years',
+            category: 'completed',
+            priority: 'informational',
+            schedule: 'Full 5-dose primary series documented',
+            rationale: 'Patient is up to date on pediatric DTaP series.',
+            sourceCitation: 'CDC Child and Adolescent Immunization Schedule',
+          });
+        } else {
+          list.push({
+            id: 'ped_dtap',
+            name: 'DTaP (Diphtheria, Tetanus, acellular Pertussis)',
+            brandExamples: 'Infanrix, Daptacel',
+            fdaAgeRange: '6 weeks through 6 years (up to 7th birthday)',
+            category: 'routine',
+            priority: 'high',
+            schedule: ageInMonths < 2 
+              ? 'First dose at 2 months of age'
+              : ageInMonths < 15 
+              ? 'Primary series at 2, 4, and 6 months'
+              : 'Booster doses at 15-18 months and 4-6 years of age',
+            rationale: 'Standard pediatric active immunization against tetanus, diphtheria, and pertussis before age 7.',
+            sourceCitation: 'CDC ACIP DTaP Schedule / FDA Package Insert (Infanrix)',
+          });
+        }
       }
 
+      // IPV
       if (patient.history.ipvCompleted) {
         list.push({
           id: 'ipv_done',
@@ -491,6 +533,7 @@ export default function App() {
         });
       }
 
+      // Hepatitis A
       if (patient.history.hepaCompleted) {
         list.push({
           id: 'hepa_done',
@@ -517,6 +560,7 @@ export default function App() {
         });
       }
 
+      // HPV
       if (patient.history.hpvCompleted) {
         list.push({
           id: 'hpv_done',
@@ -545,6 +589,7 @@ export default function App() {
         });
       }
 
+      // Adolescent Tdap & MenACWY
       if (ageInYears >= 11 && ageInYears <= 12) {
         list.push({
           id: 'ped_adolescent_booster',
@@ -559,6 +604,7 @@ export default function App() {
         });
       }
 
+      // MenACWY 16-Year Booster
       if (ageInYears >= 16 && ageInYears <= 18 && !isAsplenia) {
         list.push({
           id: 'ped_menacwy_16',
@@ -973,20 +1019,64 @@ export default function App() {
         contraindications: 'Age-Based Restriction: Routine start at 12–15 months (Maternal antibody interference)',
         sourceCitation: 'CDC Child and Adolescent Immunization Schedule (Table 1: MMR & VAR)',
       });
-    } else if (ageInYears < 50) {
-      list.push({
-        id: 'mmr_catchup',
-        name: 'MMR & Varicella Series',
-        brandExamples: 'M-M-R II or Priorix, Varivax',
-        fdaAgeRange: '≥12 months through adults',
-        category: 'routine',
-        priority: 'medium',
-        schedule: ageInYears < 7 
-          ? '2-dose routine pediatric series: Dose 1 at 12-15 months, Dose 2 at 4-6 years' 
-          : '1 to 2 doses if no laboratory presumptive immunity or documented series',
-        rationale: 'Standard immunization against Measles, Mumps, Rubella, and Varicella. Safe in asplenia and chronic metabolic disease.',
-        sourceCitation: 'CDC ACIP Catch-up Guidelines for Measles, Mumps, Rubella, and Varicella',
-      });
+    } else {
+      // Measles, Mumps, Rubella
+      if (patient.history.mmrCompleted) {
+        list.push({
+          id: 'mmr_done',
+          name: 'Measles, Mumps, Rubella (MMR)',
+          brandExamples: 'M-M-R II, Priorix',
+          fdaAgeRange: '≥12 months through adults',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Documented Series or Presumptive Immunity Complete',
+          rationale: 'Patient has documented proof of 2 doses of MMR, confirmed laboratory serologic titer, or birth before 1957.',
+          sourceCitation: 'CDC ACIP Adult Catch-up & Pediatric Guidelines for MMR',
+        });
+      } else if (ageInYears < 50) {
+        list.push({
+          id: 'mmr_catchup',
+          name: 'MMR (Measles, Mumps, Rubella Series)',
+          brandExamples: 'M-M-R II, Priorix',
+          fdaAgeRange: '≥12 months through adults',
+          category: 'routine',
+          priority: 'medium',
+          schedule: ageInYears < 7 
+            ? '2-dose routine pediatric series: Dose 1 at 12-15 months, Dose 2 at 4-6 years' 
+            : '1 to 2 doses if no laboratory presumptive immunity or documented series',
+          rationale: 'Standard immunization against Measles, Mumps, and Rubella. Indicated for adults born in 1957 or later lacking documented proof of vaccination or serologic titer immunity.',
+          sourceCitation: 'CDC ACIP Catch-up Guidelines for Measles, Mumps, Rubella',
+        });
+      }
+
+      // Varicella (Chickenpox)
+      if (patient.history.varicellaCompleted) {
+        list.push({
+          id: 'varicella_done',
+          name: 'Varicella (Chickenpox)',
+          brandExamples: 'Varivax',
+          fdaAgeRange: '≥12 months through adults',
+          category: 'completed',
+          priority: 'informational',
+          schedule: 'Documented 2-Dose Series or Prior Disease Complete',
+          rationale: 'Patient has documented history of 2 doses of Varivax, reliable clinical diagnosis/verification of varicella/herpes zoster disease, or serologic immunity.',
+          sourceCitation: 'CDC ACIP Varicella Immunization Guidelines',
+        });
+      } else if (ageInYears < 50) {
+        list.push({
+          id: 'varicella_catchup',
+          name: 'Varicella (Chickenpox Series)',
+          brandExamples: 'Varivax',
+          fdaAgeRange: '≥12 months through adults',
+          category: 'routine',
+          priority: 'medium',
+          schedule: ageInYears < 7 
+            ? '2-dose routine pediatric series: Dose 1 at 12-15 months, Dose 2 at 4-6 years' 
+            : '2 doses administered 4 to 8 weeks apart if no documented prior disease or vaccination',
+          rationale: 'Universal routine recommendation for non-pregnant, non-immunocompromised individuals lacking presumptive evidence of varicella immunity.',
+          sourceCitation: 'CDC ACIP Varicella Prevention and Catch-Up Guidelines',
+        });
+      }
     }
 
     return list;
@@ -1024,18 +1114,25 @@ export default function App() {
 
     return `CLINICAL IMMUNIZATION ASSESSMENT & ADVISORY NOTE
 =====================================================
+[BETA STAGING EVALUATION - VERIFY AGAINST PRIMARY CDC SCHEDULES]
+
 PATIENT CLINICAL SUMMARY:
 - Age: ${patientAgeDisplay}
 - Pregnancy Status: ${patient.isPregnant ? 'Yes (Maternal Protocol Active)' : 'No'}
 - Risk Conditions: ${patient.conditions.length > 0 ? patient.conditions.join(', ') : 'None documented'}
 - Occupational/Living Setting: ${patient.settings.length > 0 ? patient.settings.join(', ') : 'Standard'}
 
-PRIOR DOCUMENTED DOSES:
+PRIOR DOCUMENTED DOSES & IMMUNITY:
 - Flu (Current Season): ${patient.history.fluThisSeason ? 'Yes' : 'No'}
 - Recent COVID-19 Formula: ${patient.history.covidRecent ? 'Yes' : 'No'}
-- Maternal RSV (Abrysvo during pregnancy): ${patient.history.maternalRsvReceived ? 'Yes' : 'No'}
+- Maternal RSV (Abrysvo in pregnancy): ${patient.history.maternalRsvReceived ? 'Yes' : 'No'}
+- Rotavirus Completed: ${patient.history.rotavirusCompleted ? 'Yes' : 'No'}
+- DTaP Primary Series (Pediatric): ${patient.history.dtapPedCompleted ? 'Completed' : 'Incomplete/None'}
 - Polio (IPV): ${patient.history.ipvCompleted ? 'Completed' : 'Incomplete/None'}
+- MMR Immunity / 2-Dose Series: ${patient.history.mmrCompleted ? 'Documented Complete' : 'Incomplete/Unknown'}
+- Varicella Immunity / 2-Dose Series: ${patient.history.varicellaCompleted ? 'Documented Complete' : 'Incomplete/Unknown'}
 - Hepatitis A (HepA): ${patient.history.hepaCompleted ? 'Completed' : 'Incomplete/None'}
+- Hepatitis B (HepB): ${patient.history.hepbCompleted ? 'Completed' : 'Incomplete/None'}
 - HPV Series: ${patient.history.hpvCompleted ? 'Completed' : 'Incomplete/None'}
 - Tdap within 10 years: ${patient.history.tdapWithin10Yrs ? 'Yes' : 'No'}
 - Shingrix 2-Dose Series: ${patient.history.shingrixCompleted ? 'Completed' : 'Incomplete/None'}
@@ -1071,15 +1168,28 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 bg-slate-50 min-h-screen text-slate-800 font-sans print:p-0 print:bg-white">
+      {/* Beta Staging Clinical Alert Banner */}
+      <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3 sm:p-3.5 flex items-start gap-3 text-amber-900 shadow-xs print:hidden">
+        <FlaskConical className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+        <div className="text-xs leading-relaxed">
+          <span className="font-bold uppercase tracking-wider text-amber-800 mr-1.5">Beta Testing Notice:</span>
+          This clinical decision tool is actively in beta testing and clinical development. While based on CDC/ACIP guidelines, calculation discrepancies or algorithmic errors are possible. Do not use as a sole diagnostic or ordering authority without cross-verifying official CDC schedules.
+        </div>
+      </div>
+
       {/* Header Bar */}
       <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4 print:border-b-2 print:border-slate-800">
         <div>
-          <div className="flex items-center gap-2 text-indigo-600 font-bold text-2xl print:text-black">
+          <div className="flex items-center gap-2 text-indigo-600 font-bold text-2xl print:text-black flex-wrap">
             <HeartPulse className="w-8 h-8" />
             <h1>ACIP Vaccine Clinical Navigator</h1>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+              <FlaskConical className="w-3 h-3" />
+              Beta Version
+            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            CDC Child, Adolescent, & Adult Immunization Engine with age-gated clinical filters and updated product indications.
+            CDC Child, Adolescent, & Adult Immunization Engine with complete dose history tracking, age-gated screening, and updated product indications.
           </p>
         </div>
         
@@ -1131,7 +1241,7 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Step 1</span>
             </div>
 
-            {/* Age Selection with Unit Toggle, Stepper, & Quick Landmark Dropdown */}
+            {/* Age Selection with Unit Toggle, Stepper, & Landmark Dropdown */}
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -1197,7 +1307,7 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                 </button>
               </div>
 
-              {/* Quick Jump Dropdown Menu */}
+              {/* Quick Jump Landmark Dropdown */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
                   Quick Landmark Milestones:
@@ -1314,9 +1424,10 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
             {showHistoryPanel && (
               <div className="p-4 space-y-3 bg-white text-xs">
                 <p className="text-slate-500 text-[11px] mb-2">
-                  Check off documented previous doses to automatically adjust intervals and suppress redundant booster recommendations.
+                  Check off documented previous doses to automatically adjust intervals, recognize immunity, and suppress redundant recommendations.
                 </p>
 
+                {/* Maternal RSV Flag (relevant for infants <= 8 months) */}
                 {ageInMonths <= 8 && (
                   <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                     <input
@@ -1326,6 +1437,32 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                       className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                     />
                     <span>Mother Received Maternal RSV Vaccine (Abrysvo) during pregnancy</span>
+                  </label>
+                )}
+
+                {/* Rotavirus infant series */}
+                {ageInMonths <= 12 && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.rotavirusCompleted}
+                      onChange={(e) => updateHistory('rotavirusCompleted', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Completed Rotavirus Oral Series (2 doses Rotarix or 3 doses RotaTeq)</span>
+                  </label>
+                )}
+
+                {/* DTaP primary series (pediatric) */}
+                {ageInYears < 11 && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.dtapPedCompleted}
+                      onChange={(e) => updateHistory('dtapPedCompleted', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Completed Childhood DTaP Primary Series (doses at 2, 4, 6, 15-18 mos)</span>
                   </label>
                 )}
 
@@ -1349,6 +1486,28 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                   <span>Received Updated COVID-19 Seasonal Dose</span>
                 </label>
 
+                {/* Measles, Mumps, Rubella (MMR) */}
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.mmrCompleted}
+                    onChange={(e) => updateHistory('mmrCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Documented MMR Immunity (2 doses, lab serology, or born before 1957)</span>
+                </label>
+
+                {/* Varicella (Chickenpox) */}
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.varicellaCompleted}
+                    onChange={(e) => updateHistory('varicellaCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Documented Varicella Immunity (2 doses, prior chickenpox, or lab titer)</span>
+                </label>
+
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1367,6 +1526,26 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                   />
                   <span>Completed Hepatitis A (HepA) 2-Dose Series</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.hepbCompleted}
+                    onChange={(e) => updateHistory('hepbCompleted', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Completed Hepatitis B Series</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.history.hibReceived}
+                    onChange={(e) => updateHistory('hibReceived', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                  />
+                  <span>Documented Prior Hib Vaccine (Adult or Child Series)</span>
                 </label>
 
                 {ageInYears >= 9 && (
@@ -1404,26 +1583,6 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                     <span>Completed 2-Dose Shingrix (RZV) series</span>
                   </label>
                 )}
-
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.hepbCompleted}
-                    onChange={(e) => updateHistory('hepbCompleted', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Completed Hepatitis B series</span>
-                </label>
-
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.hibReceived}
-                    onChange={(e) => updateHistory('hibReceived', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Documented Prior Hib Vaccine (Adult or Child)</span>
-                </label>
 
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                   <input
@@ -1680,15 +1839,21 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
         </div>
       )}
 
-      {/* Medical Disclaimer */}
+      {/* Expanded Medical & Beta Disclaimer Footer */}
       <footer className="mt-12 pt-6 border-t border-slate-200 print:hidden">
-        <div className="bg-slate-100 rounded-2xl p-5 border border-slate-200">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-sm mb-2">
+        <div className="bg-slate-100 rounded-2xl p-5 border border-slate-200 space-y-3">
+          <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
             <Scale className="w-4 h-4 text-slate-600" />
             <h3>Medical & Regulatory Disclaimer</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md ml-1">
+              Active Beta Testing
+            </span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
-            <strong>For Educational and Informational Purposes Only:</strong> This application is intended solely as an interactive reference tool based on published CDC and ACIP immunization schedules and manufacturer prescribing guidelines. It does not provide medical advice or personalized medical orders.
+            <strong>For Educational and Demonstration Reference Only:</strong> This application is currently undergoing active beta development and software validation. Algorithm recommendations are derived from published CDC and ACIP immunization schedules and manufacturer prescribing guidelines, but software bugs, calculation discrepancies, or algorithmic interpretation errors may occur.
+          </p>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            This tool does not constitute medical advice, diagnosis, or personalized patient orders. Licensed healthcare providers must independently confirm all indications, contraindications, and schedules using primary manufacturer package inserts and current CDC MMWR recommendations prior to clinical administration.
           </p>
         </div>
       </footer>
