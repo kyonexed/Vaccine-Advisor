@@ -117,6 +117,14 @@ export default function App() {
       : Math.round(patient.ageValue * 12);
   }, [patient.ageValue, patient.ageUnit]);
 
+  const isImmuno = useMemo(() => {
+    return patient.conditions.includes('immunocompromised');
+  }, [patient.conditions]);
+
+  const isAsplenia = useMemo(() => {
+    return patient.conditions.includes('asplenia');
+  }, [patient.conditions]);
+
   const visibleConditions = useMemo(() => {
     return ALL_CONDITIONS_LIST.filter(cond => ageInYears >= cond.minAgeYears);
   }, [ageInYears]);
@@ -214,8 +222,6 @@ export default function App() {
     const list: VaccineRecommendation[] = [];
     const hasCondition = (id: string) => patient.conditions.includes(id);
     const hasSetting = (id: string) => patient.settings.includes(id);
-    const isImmuno = hasCondition('immunocompromised');
-    const isAsplenia = hasCondition('asplenia');
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
     // 1. INFLUENZA
@@ -391,7 +397,7 @@ export default function App() {
       });
     }
 
-    // 4. PEDIATRIC SPECIFIC (Months & Child Schedule)
+    // 4. PEDIATRIC SPECIFIC
     if (ageInYears < 19) {
       if (ageInMonths <= 8) {
         list.push({
@@ -956,7 +962,7 @@ export default function App() {
     }
 
     return list;
-  }, [patient, ageInYears, ageInMonths]);
+  }, [patient, ageInYears, ageInMonths, isImmuno, isAsplenia]);
 
   const filteredRecs = useMemo(() => {
     return recommendations.filter(rec => {
