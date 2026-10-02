@@ -60,47 +60,19 @@ interface VaccineRecommendation {
   priority: 'high' | 'medium' | 'critical' | 'informational';
 }
 
-const CONDITIONS_LIST = [
-  { id: 'diabetes', label: 'Diabetes Mellitus' },
-  { id: 'cardiopulmonary', label: 'Chronic Heart / Lung Disease (COPD, Asthma, CHF)' },
-  { id: 'liver_kidney', label: 'Chronic Liver Disease / ESRD / Dialysis' },
-  { id: 'immunocompromised', label: 'Immunocompromised (HIV, Chemo, Biologics, Transplant)' },
-  { id: 'asplenia', label: 'Asplenia / Complement Deficiency / Sickle Cell' },
-  { id: 'smoking', label: 'Current Cigarette Smoker' },
+const ALL_CONDITIONS_LIST = [
+  { id: 'diabetes', label: 'Diabetes Mellitus', minAgeYears: 0 },
+  { id: 'cardiopulmonary', label: 'Chronic Heart / Lung Disease (COPD, Asthma, CHF)', minAgeYears: 0 },
+  { id: 'liver_kidney', label: 'Chronic Liver Disease / ESRD / Dialysis', minAgeYears: 0 },
+  { id: 'immunocompromised', label: 'Immunocompromised (HIV, Chemo, Biologics, Transplant)', minAgeYears: 0 },
+  { id: 'asplenia', label: 'Asplenia / Complement Deficiency / Sickle Cell', minAgeYears: 0 },
+  { id: 'smoking', label: 'Current Cigarette Smoker', minAgeYears: 12 },
 ];
 
-const SETTINGS_LIST = [
-  { id: 'healthcare', label: 'Healthcare Worker' },
-  { id: 'college_dorm', label: 'First-year College Student in Dorm / Military' },
-  { id: 'travel', label: 'International Travel to Endemic Regions' },
-];
-
-const PRESET_YEARS = [
-  { value: 0, label: '0 (Newborn / Infant)' },
-  { value: 1, label: '1 year old' },
-  { value: 2, label: '2 years old' },
-  { value: 4, label: '4 years old (Kindergarten entry)' },
-  { value: 9, label: '9 years old (HPV earliest eligible)' },
-  { value: 11, label: '11 years old (Adolescent Tdap / MenACWY / HPV)' },
-  { value: 16, label: '16 years old (MenACWY booster / MenB eligible)' },
-  { value: 18, label: '18 years old (Adult transition)' },
-  { value: 19, label: '19 years old (Adult schedule entry)' },
-  { value: 27, label: '27 years old (HPV shared decision)' },
-  { value: 50, label: '50 years old (PCV / Shingrix threshold)' },
-  { value: 65, label: '65 years old (Senior High-Dose Flu / COVID booster)' },
-  { value: 75, label: '75 years old (Universal RSV)' },
-];
-
-const PRESET_MONTHS = [
-  { value: 0, label: '0 months (Birth / Newborn)' },
-  { value: 1, label: '1 month' },
-  { value: 2, label: '2 months (Pediatric Series Dose 1)' },
-  { value: 4, label: '4 months (Pediatric Series Dose 2)' },
-  { value: 6, label: '6 months (Pediatric Dose 3 & Flu / COVID Start)' },
-  { value: 12, label: '12 months (MMR / Varicella / HepA Dose 1)' },
-  { value: 15, label: '15 months (DTaP Dose 4)' },
-  { value: 18, label: '18 months (HepA Dose 2 completion)' },
-  { value: 23, label: '23 months (Toddler milestone)' },
+const ALL_SETTINGS_LIST = [
+  { id: 'healthcare', label: 'Healthcare Worker', minAgeYears: 16 },
+  { id: 'college_dorm', label: 'First-year College Student in Dorm / Military', minAgeYears: 17 },
+  { id: 'travel', label: 'International Travel to Endemic Regions', minAgeYears: 0 },
 ];
 
 export default function App() {
@@ -144,6 +116,28 @@ export default function App() {
       ? patient.ageValue
       : Math.round(patient.ageValue * 12);
   }, [patient.ageValue, patient.ageUnit]);
+
+  // Filter conditions and settings based on current age
+  const visibleConditions = useMemo(() => {
+    return ALL_CONDITIONS_LIST.filter(cond => ageInYears >= cond.minAgeYears);
+  }, [ageInYears]);
+
+  const visibleSettings = useMemo(() => {
+    return ALL_SETTINGS_LIST.filter(setting => ageInYears >= setting.minAgeYears);
+  }, [ageInYears]);
+
+  // Clean up invalid selections if age is dialed down
+  const cleanProfileForAge = (newAgeYears: number, currentProfile: PatientProfile): PatientProfile => {
+    const validCondIds = ALL_CONDITIONS_LIST.filter(c => newAgeYears >= c.minAgeYears).map(c => c.id);
+    const validSettingIds = ALL_SETTINGS_LIST.filter(s => newAgeYears >= s.minAgeYears).map(s => s.id);
+
+    return {
+      ...currentProfile,
+      isPregnant: newAgeYears >= 12 ? currentProfile.isPregnant : false,
+      conditions: currentProfile.conditions.filter(id => validCondIds.includes(id)),
+      settings: currentProfile.settings.filter(id => validSettingIds.includes(id)),
+    };
+  };
 
   const toggleCondition = (id: string) => {
     setPatient(prev => ({
@@ -201,17 +195,20 @@ export default function App() {
   const handleAgeChange = (value: number) => {
     const max = 120;
     const valid = isNaN(value) ? 0 : Math.max(0, Math.min(max, value));
-    setPatient(prev => ({ ...prev, ageValue: valid }));
+    const calculatedYears = patient.ageUnit === 'months' ? valid / 12 : valid;
+    
+    setPatient(prev => cleanProfileForAge(calculatedYears, { ...prev, ageValue: valid }));
   };
 
   const handleUnitToggle = (unit: 'years' | 'months') => {
     if (unit === patient.ageUnit) return;
     if (unit === 'months') {
       const converted = Math.min(120, Math.round(patient.ageValue * 12));
-      setPatient(prev => ({ ...prev, ageUnit: 'months', ageValue: converted }));
+      const calculatedYears = converted / 12;
+      setPatient(prev => cleanProfileForAge(calculatedYears, { ...prev, ageUnit: 'months', ageValue: converted }));
     } else {
       const converted = Math.min(120, Math.floor(patient.ageValue / 12));
-      setPatient(prev => ({ ...prev, ageUnit: 'years', ageValue: converted }));
+      setPatient(prev => cleanProfileForAge(converted, { ...prev, ageUnit: 'years', ageValue: converted }));
     }
   };
 
@@ -224,9 +221,7 @@ export default function App() {
     const isAsplenia = hasCondition('asplenia');
     const hasChronic = hasCondition('diabetes') || hasCondition('cardiopulmonary') || hasCondition('liver_kidney') || hasCondition('smoking');
 
-    // ==========================================
     // 1. INFLUENZA (Trivalent IIV3 / ccIIV3 / RIV3 / LAIV3)
-    // ==========================================
     if (patient.history.fluThisSeason) {
       list.push({
         id: 'flu_done',
@@ -272,9 +267,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
-    // 2. COVID-19 (Updated Formula & Brand Names)
-    // ==========================================
+    // 2. COVID-19
     if (patient.history.covidRecent) {
       list.push({
         id: 'covid_done',
@@ -374,9 +367,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
     // 3. INFANT PASSIVE RSV IMMUNOPROPHYLAXIS (Nirsevimab)
-    // ==========================================
     if (ageInMonths <= 8 && !patient.history.maternalRsvReceived) {
       list.push({
         id: 'ped_nirsevimab',
@@ -403,9 +394,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
     // 4. PEDIATRIC SPECIFIC (Months & Child Schedule)
-    // ==========================================
     if (ageInYears < 19) {
       // Rotavirus
       if (ageInMonths <= 8) {
@@ -561,9 +550,7 @@ export default function App() {
       }
     }
 
-    // ==========================================
     // 5. TDAP / TD (Adults ≥ 19 or Pregnant)
-    // ==========================================
     if (ageInYears >= 19 || patient.isPregnant) {
       if (patient.isPregnant) {
         list.push({
@@ -604,9 +591,7 @@ export default function App() {
       }
     }
 
-    // ==========================================
-    // 6. SHINGLES (RZV - Recombinant Zoster)
-    // ==========================================
+    // 6. SHINGLES (RZV)
     if (patient.history.shingrixCompleted) {
       list.push({
         id: 'shingrix_done',
@@ -647,9 +632,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
-    // 7. PNEUMOCOCCAL (PCV15 / PCV20 / PCV21)
-    // ==========================================
+    // 7. PNEUMOCOCCAL
     if (patient.history.priorPneumococcal === 'pcv20') {
       list.push({
         id: 'pneumo_completed',
@@ -728,9 +711,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
     // 8. ASPLENIA ENCAPSULATED ORGANISM COVERAGE
-    // ==========================================
     // MenACWY
     if (isAsplenia || hasSetting('college_dorm') || hasSetting('travel')) {
       if (patient.history.menAcwyCompleted && !isAsplenia) {
@@ -834,9 +815,7 @@ export default function App() {
       }
     }
 
-    // ==========================================
     // 9. ADULT & MATERNAL RSV
-    // ==========================================
     if (ageInYears >= 75) {
       list.push({
         id: 'rsv_75',
@@ -875,9 +854,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
-    // 10. HEPATITIS B (Current Active Formulations)
-    // ==========================================
+    // 10. HEPATITIS B
     if (patient.history.hepbCompleted) {
       list.push({
         id: 'hepb_done',
@@ -942,9 +919,7 @@ export default function App() {
       });
     }
 
-    // ==========================================
     // 11. LIVE VACCINES (MMR & VARICELLA)
-    // ==========================================
     if (patient.isPregnant || isImmuno) {
       const contraReason = patient.isPregnant && isImmuno
         ? 'Active Pregnancy AND Severe Immunocompromise / T-cell deficiency'
@@ -1083,7 +1058,7 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
             <h1>ACIP Vaccine Clinical Navigator</h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 print:text-slate-600">
-            CDC Child, Adolescent, & Adult Immunization Engine featuring pediatric RSV-mAb (Nirsevimab), HepA, HPV, & updated COVID-19 formulations.
+            CDC Child, Adolescent, & Adult Immunization Engine with age-gated clinical filters and updated product indications.
           </p>
         </div>
         
@@ -1135,7 +1110,7 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Step 1</span>
             </div>
 
-            {/* Age Selection with Unit Toggle, Stepper, and Quick Presets */}
+            {/* Age Selection with Unit Toggle & Stepper */}
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -1201,24 +1176,6 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                 </button>
               </div>
 
-              {/* Quick Jump Dropdown Menu */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
-                  Quick Landmark Milestones:
-                </label>
-                <select
-                  value={patient.ageValue}
-                  onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-indigo-500"
-                >
-                  {(patient.ageUnit === 'months' ? PRESET_MONTHS : PRESET_YEARS).map((preset) => (
-                    <option key={preset.value} value={preset.value}>
-                      {preset.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Status summary banner */}
               <div className="flex justify-between items-center text-[11px] text-indigo-900 bg-indigo-50/70 px-2.5 py-1.5 rounded-md border border-indigo-100 font-medium">
                 <span>Active Clinical Evaluation:</span>
@@ -1226,30 +1183,32 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
               </div>
             </div>
 
-            {/* Pregnancy Switch */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-              <div>
-                <div className="text-xs font-bold text-slate-800">Currently Pregnant?</div>
-                <div className="text-[11px] text-slate-500">Activates maternal Tdap/RSV; flags live vaccines</div>
+            {/* Pregnancy Switch - Visible only if age >= 12 years */}
+            {ageInYears >= 12 && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between transition">
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Currently Pregnant?</div>
+                  <div className="text-[11px] text-slate-500">Activates maternal Tdap/RSV; flags live vaccines</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={patient.isPregnant}
+                    onChange={(e) => setPatient({ ...patient, isPregnant: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={patient.isPregnant}
-                  onChange={(e) => setPatient({ ...patient, isPregnant: e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
+            )}
 
-            {/* Underlying Clinical Conditions */}
+            {/* Underlying Clinical Conditions (Filtered by age) */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
                 Underlying Medical Conditions
               </label>
               <div className="space-y-1.5">
-                {CONDITIONS_LIST.map((cond) => {
+                {visibleConditions.map((cond) => {
                   const active = patient.conditions.includes(cond.id);
                   return (
                     <button
@@ -1269,31 +1228,33 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
               </div>
             </div>
 
-            {/* Living / Occupational Settings */}
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
-                Occupational / Living Exposures
-              </label>
-              <div className="space-y-1.5">
-                {SETTINGS_LIST.map((setting) => {
-                  const active = patient.settings.includes(setting.id);
-                  return (
-                    <button
-                      key={setting.id}
-                      onClick={() => toggleSetting(setting.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium border transition flex items-center justify-between ${
-                        active
-                          ? 'bg-indigo-50 border-indigo-300 text-indigo-900'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>{setting.label}</span>
-                      {active ? <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" /> : <div className="w-4 h-4 border border-slate-300 rounded-full shrink-0" />}
-                    </button>
-                  );
-                })}
+            {/* Living / Occupational Settings (Filtered by age) */}
+            {visibleSettings.length > 0 && (
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                  Occupational / Living Exposures
+                </label>
+                <div className="space-y-1.5">
+                  {visibleSettings.map((setting) => {
+                    const active = patient.settings.includes(setting.id);
+                    return (
+                      <button
+                        key={setting.id}
+                        onClick={() => toggleSetting(setting.id)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium border transition flex items-center justify-between ${
+                          active
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-900'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{setting.label}</span>
+                        {active ? <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" /> : <div className="w-4 h-4 border border-slate-300 rounded-full shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Collapsible Vaccine History Checklist */}
@@ -1317,15 +1278,18 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                   Check off documented previous doses to automatically adjust intervals and suppress redundant booster recommendations.
                 </p>
 
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.maternalRsvReceived}
-                    onChange={(e) => updateHistory('maternalRsvReceived', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Mother Received Maternal RSV Vaccine (Abrysvo) during pregnancy</span>
-                </label>
+                {/* Maternal RSV Flag (relevant for infants <= 8 months) */}
+                {ageInMonths <= 8 && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.maternalRsvReceived}
+                      onChange={(e) => updateHistory('maternalRsvReceived', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Mother Received Maternal RSV Vaccine (Abrysvo) during pregnancy</span>
+                  </label>
+                )}
 
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                   <input
@@ -1367,35 +1331,41 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                   <span>Completed Hepatitis A (HepA) 2-Dose Series</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.hpvCompleted}
-                    onChange={(e) => updateHistory('hpvCompleted', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Completed Human Papillomavirus (HPV) Series</span>
-                </label>
+                {ageInYears >= 9 && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.hpvCompleted}
+                      onChange={(e) => updateHistory('hpvCompleted', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Completed Human Papillomavirus (HPV) Series</span>
+                  </label>
+                )}
 
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.tdapWithin10Yrs}
-                    onChange={(e) => updateHistory('tdapWithin10Yrs', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Received Tdap / Td within past 10 years</span>
-                </label>
+                {ageInYears >= 11 && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.tdapWithin10Yrs}
+                      onChange={(e) => updateHistory('tdapWithin10Yrs', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Received Tdap / Td within past 10 years</span>
+                  </label>
+                )}
 
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.shingrixCompleted}
-                    onChange={(e) => updateHistory('shingrixCompleted', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Completed 2-Dose Shingrix (RZV) series</span>
-                </label>
+                {(ageInYears >= 50 || isImmuno) && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.shingrixCompleted}
+                      onChange={(e) => updateHistory('shingrixCompleted', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Completed 2-Dose Shingrix (RZV) series</span>
+                  </label>
+                )}
 
                 <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
                   <input
@@ -1427,15 +1397,17 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                   <span>Completed Initial MenACWY 2-Dose Series</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={patient.history.menBCompleted}
-                    onChange={(e) => updateHistory('menBCompleted', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span>Completed Initial MenB Series (Bexsero or Trumenba)</span>
-                </label>
+                {ageInYears >= 10 && (
+                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={patient.history.menBCompleted}
+                      onChange={(e) => updateHistory('menBCompleted', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Completed Initial MenB Series (Bexsero or Trumenba)</span>
+                  </label>
+                )}
 
                 <div className="pt-2 border-t border-slate-100">
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
@@ -1648,14 +1620,19 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
             
             <div className="text-xs space-y-3 text-slate-700 leading-relaxed">
               <p>
-                <strong>General Rule for Inactivated Vaccines & Monoclonal Antibodies:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Hepatitis A, Tdap, IPV, MenACWY, MenB, Hib) and Nirsevimab (RSV-mAb) can be co-administered simultaneously at separate anatomical injection sites.
+                <strong>General Rule for Inactivated Vaccines & Monoclonal Antibodies:</strong> Inactivated vaccines (Flu, COVID-19, Shingrix, Pneumococcal, Hepatitis B, Hepatitis A, Tdap, IPV, MenACWY, MenB, Hib) and Nirsevimab (RSV-mAb) can be co-administered simultaneously at separate anatomical injection sites during the same visit.
               </p>
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
-                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever, LAIV3):</strong> Parenteral live virus vaccines must be administered on the <em>same calendar day</em> OR separated by at least <em>28 days</em>.
+                <strong>Live Attenuated Spacing Rule (MMR, Varicella, Yellow Fever, LAIV3):</strong> Parenteral live virus vaccines must be administered on the same calendar day or spaced apart by at least 28 days (4 weeks) to avoid immune response blunting.
               </div>
               <p>
-                <strong>PCV15 & PPSV23 Sequence:</strong> If PCV15 is administered, follow with PPSV23 at least 1 year later (immunocompetent) or $\ge 8$ weeks later (immunocompromised or asplenia). Never administer PCV15 and PPSV23 together at the same visit.
+                <strong>Pneumococcal PCV & PPSV23 Spacing:</strong>
               </p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                <li>If <strong>PCV20 or PCV21</strong> is administered, no subsequent dose of PPSV23 is needed; pneumococcal coverage is complete.</li>
+                <li>If <strong>PCV15</strong> is given, it must be followed by a dose of <strong>PPSV23</strong> at least 1 year later in immunocompetent adults, or at least 8 weeks later in patients with asplenia or immunocompromising conditions.</li>
+                <li><strong>PCV15 and PPSV23 should never be administered simultaneously at the same clinical visit.</strong></li>
+              </ul>
             </div>
 
             <div className="pt-2 flex justify-end">
