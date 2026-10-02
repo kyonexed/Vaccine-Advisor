@@ -75,6 +75,34 @@ const ALL_SETTINGS_LIST = [
   { id: 'travel', label: 'International Travel to Endemic Regions', minAgeYears: 0 },
 ];
 
+const PRESET_YEARS = [
+  { value: 0, label: '0 (Newborn / Infant)' },
+  { value: 1, label: '1 year old' },
+  { value: 2, label: '2 years old' },
+  { value: 4, label: '4 years old (Kindergarten entry)' },
+  { value: 9, label: '9 years old (HPV earliest eligible)' },
+  { value: 11, label: '11 years old (Adolescent Tdap / MenACWY / HPV)' },
+  { value: 16, label: '16 years old (MenACWY booster / MenB eligible)' },
+  { value: 18, label: '18 years old (Adult transition)' },
+  { value: 19, label: '19 years old (Adult schedule entry)' },
+  { value: 27, label: '27 years old (HPV shared decision)' },
+  { value: 50, label: '50 years old (PCV / Shingrix threshold)' },
+  { value: 65, label: '65 years old (Senior High-Dose Flu / COVID booster)' },
+  { value: 75, label: '75 years old (Universal RSV)' },
+];
+
+const PRESET_MONTHS = [
+  { value: 0, label: '0 months (Birth / Newborn)' },
+  { value: 1, label: '1 month' },
+  { value: 2, label: '2 months (Pediatric Series Dose 1)' },
+  { value: 4, label: '4 months (Pediatric Series Dose 2)' },
+  { value: 6, label: '6 months (Pediatric Dose 3 & Flu / COVID Start)' },
+  { value: 12, label: '12 months (MMR / Varicella / HepA Dose 1)' },
+  { value: 15, label: '15 months (DTaP Dose 4)' },
+  { value: 18, label: '18 months (HepA Dose 2 completion)' },
+  { value: 23, label: '23 months (Toddler milestone)' },
+];
+
 export default function App() {
   const [patient, setPatient] = useState<PatientProfile>({
     ageValue: 6,
@@ -1103,7 +1131,7 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Step 1</span>
             </div>
 
-            {/* Age Selection with Unit Toggle & Stepper */}
+            {/* Age Selection with Unit Toggle, Stepper, & Quick Landmark Dropdown */}
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -1167,6 +1195,24 @@ Assessed per CDC / ACIP Child, Adolescent & Adult Immunization Schedules.`;
                 >
                   <Plus className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Quick Jump Dropdown Menu */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
+                  Quick Landmark Milestones:
+                </label>
+                <select
+                  value={patient.ageValue}
+                  onChange={(e) => handleAgeChange(parseInt(e.target.value) || 0)}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-indigo-500"
+                >
+                  {(patient.ageUnit === 'months' ? PRESET_MONTHS : PRESET_YEARS).map((preset) => (
+                    <option key={preset.value} value={preset.value}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Status summary banner */}
